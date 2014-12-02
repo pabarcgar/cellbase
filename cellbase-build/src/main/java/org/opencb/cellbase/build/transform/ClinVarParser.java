@@ -1,7 +1,9 @@
 package org.opencb.cellbase.build.transform;
 
-import org.opencb.biodata.formats.feature.RefseqAccession;
+import org.opencb.biodata.formats.feature.refseq.RefseqAccession;
 import org.opencb.biodata.formats.variant.clinvar.ClinvarParser;
+import org.opencb.biodata.formats.variant.hgvs.Hgvs;
+import org.opencb.biodata.models.variant.Variant;
 import org.opencb.cellbase.build.transform.formats.clinical.ClinvarPublicSet;
 import org.opencb.biodata.formats.variant.clinvar.v19jaxb.MeasureSetType;
 import org.opencb.biodata.formats.variant.clinvar.v19jaxb.PublicSetType;
@@ -13,6 +15,7 @@ import javax.xml.bind.JAXBElement;
 import javax.xml.bind.JAXBException;
 import java.nio.file.Path;
 import java.text.NumberFormat;
+import java.text.ParseException;
 
 /**
  * Created by imedina on 26/09/14.
@@ -71,9 +74,8 @@ public class ClinVarParser extends CellBaseParser{
     }
 
     private ClinvarPublicSet buildClinvarPublicSet(PublicSetType publicSet) {
-        //Variant variant = obtainVariant(publicSet);
         ClinvarPublicSet clinvarPublicSet = null;
-        SequenceLocationType sequenceLocation = obtainAssembly37SequenceLocation(publicSet);
+        SequenceLocationType sequenceLocation = obtainCompleteSequenceLocation(publicSet);
         if (sequenceLocation != null) {
             clinvarPublicSet = new ClinvarPublicSet(new RefseqAccession(sequenceLocation.getAccession()).getChromosome(),
                     sequenceLocation.getStart().intValue(),
@@ -81,11 +83,44 @@ public class ClinVarParser extends CellBaseParser{
                     sequenceLocation.getReferenceAllele(),
                     sequenceLocation.getAlternateAllele(),
                     publicSet);
+        } else {
+            Variant variant = obtainVariantFromHgvsAttribute(publicSet);
+            if (variant != null) {
+                clinvarPublicSet = new ClinvarPublicSet(variant.getChromosome(),
+                        variant.getStart(),
+                        variant.getEnd(),
+                        variant.getReference(),
+                        variant.getAlternate(),
+                        publicSet);
+            }
         }
         return clinvarPublicSet;
     }
 
-    private SequenceLocationType obtainAssembly37SequenceLocation(PublicSetType publicSet) {
+    private Variant obtainVariantFromHgvsAttribute(PublicSetType publicSet) {
+        for (MeasureSetType.Measure measure : publicSet.getReferenceClinVarAssertion().getMeasureSet().getMeasure()) {
+            for (MeasureSetType.Measure.AttributeSet attributeSet : measure.getAttributeSet()) {
+                MeasureSetType.Measure.AttributeSet.Attribute attribute = attributeSet.getAttribute();
+                if (isGenomicHgvs(attribute)) {
+                    Hgvs hgvs = new Hgvs(attribute.getValue());
+                    if (hgvs.getAssembly().equals(selectedAssembly)) {
+                        try {
+                            return hgvs.getVariant();
+                        } catch (ParseException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private boolean isGenomicHgvs(MeasureSetType.Measure.AttributeSet.Attribute attribute) {
+        return attribute.getType().startsWith(Hgvs.HGVS) && attribute.getValue().startsWith(RefseqAccession.REFSEQ_CHROMOSOME_ACCESION_TAG);
+    }
+
+    private SequenceLocationType obtainCompleteSequenceLocation(PublicSetType publicSet) {
         for (MeasureSetType.Measure measure : publicSet.getReferenceClinVarAssertion().getMeasureSet().getMeasure()) {
             for (SequenceLocationType location :  measure.getSequenceLocation()) {
                 if (validLocation(location)) {
