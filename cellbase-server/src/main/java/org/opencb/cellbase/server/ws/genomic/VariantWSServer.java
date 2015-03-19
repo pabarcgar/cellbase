@@ -1,15 +1,16 @@
 package org.opencb.cellbase.server.ws.genomic;
 
+import org.opencb.biodata.models.core.Transcript;
+import org.opencb.biodata.models.variation.GenomicVariant;
 import org.opencb.cellbase.core.common.Position;
-import org.opencb.cellbase.core.common.core.Transcript;
-import org.opencb.cellbase.core.common.variation.GenomicVariant;
 import org.opencb.cellbase.core.lib.api.SnpDBAdaptor;
 import org.opencb.cellbase.core.lib.api.variation.MutationDBAdaptor;
+import org.opencb.cellbase.core.lib.api.variation.VariantAnnotationDBAdaptor;
 import org.opencb.cellbase.core.lib.api.variation.VariantEffectDBAdaptor;
 import org.opencb.cellbase.core.lib.api.variation.VariationPhenotypeAnnotationDBAdaptor;
-import org.opencb.cellbase.core.lib.dbquery.QueryResult;
 import org.opencb.cellbase.server.exception.VersionException;
 import org.opencb.cellbase.server.ws.GenericRestWSServer;
+import org.opencb.datastore.core.QueryResult;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.*;
@@ -235,4 +236,22 @@ public class VariantWSServer extends GenericRestWSServer {
         return createOkResponse(sb.toString());
     }
 
+    @GET
+    //@Consumes("application/x-www-form-urlencoded")
+    @Path("/{variants}/full_annotation")
+    public Response getAnnotationByVariants(@PathParam("variants") String variants) {
+        try {
+            checkParams();
+            List<GenomicVariant> variantList = GenomicVariant.parseVariants(variants);
+            logger.debug("queryOptions: " + queryOptions);
+
+            VariantAnnotationDBAdaptor variantAnnotationDBAdaptor = dbAdaptorFactory.getVariantAnnotationDBAdaptor(this.species, this.assembly);
+            List<QueryResult> clinicalQueryResultList = variantAnnotationDBAdaptor.getAnnotationByVariantList(variantList, queryOptions);
+
+            return createOkResponse(clinicalQueryResultList);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return createErrorResponse("getAnnotationByVariants", e.toString());
+        }
+    }
 }

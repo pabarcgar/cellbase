@@ -3,15 +3,15 @@ package org.opencb.cellbase.server.ws.feature;
 import com.google.common.base.Splitter;
 import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
-import org.opencb.cellbase.core.common.core.Xref;
+import org.opencb.biodata.models.core.Xref;
 import org.opencb.cellbase.core.lib.api.GeneDBAdaptor;
 import org.opencb.cellbase.core.lib.api.XRefsDBAdaptor;
 import org.opencb.cellbase.core.lib.api.variation.VariationDBAdaptor;
-import org.opencb.cellbase.core.lib.dbquery.QueryOptions;
-import org.opencb.cellbase.core.lib.dbquery.QueryResult;
 import org.opencb.cellbase.server.QueryResponse;
 import org.opencb.cellbase.server.ws.GenericRestWSServer;
 import org.opencb.cellbase.server.exception.VersionException;
+import org.opencb.datastore.core.QueryOptions;
+import org.opencb.datastore.core.QueryResult;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.*;
@@ -28,7 +28,7 @@ import java.util.List;
  */
 @Path("/{version}/{species}/feature/id")
 @Produces("application/json")
-@Api(value = "Xref", description = "XRef RESTful Web Services API")
+@Api(value = "Xref", description = "External References RESTful Web Services API")
 public class IdWSServer extends GenericRestWSServer {
 
     public IdWSServer(@PathParam("version") String version, @PathParam("species") String species,
@@ -38,7 +38,7 @@ public class IdWSServer extends GenericRestWSServer {
 
     @GET
     @Path("/{id}/xref")
-    @ApiOperation(httpMethod = "GET", value = "Retrieves all the XRefs IDs", response = QueryResponse.class)
+    @ApiOperation(httpMethod = "GET", value = "Retrieves all the external references for the ID")
     public Response getByFeatureId(@PathParam("id") String query, @DefaultValue("") @QueryParam("dbname") String dbname) {
         try {
             checkParams();
@@ -61,6 +61,7 @@ public class IdWSServer extends GenericRestWSServer {
 
     @GET
     @Path("/{id}/gene")
+    @ApiOperation(httpMethod = "GET", value = "Get the gene for the given ID")
     public Response getGeneByEnsemblId(@PathParam("id") String query) {
         try {
             checkParams();
@@ -77,8 +78,10 @@ public class IdWSServer extends GenericRestWSServer {
         }
     }
 
+    @Deprecated
     @GET
     @Path("/{id}/snp")
+    @ApiOperation(httpMethod = "GET", value = "Get the SNP for the given ID")
     public Response getSnpByFeatureId(@PathParam("id") String query) {
         try {
             checkParams();
@@ -92,6 +95,7 @@ public class IdWSServer extends GenericRestWSServer {
 
     @GET
     @Path("/{id}/starts_with")
+    @ApiOperation(httpMethod = "GET", value = "Get the genes that match the beginning of the given string")
     public Response getByLikeQuery(@PathParam("id") String query) {
         try {
             checkParams();
@@ -112,6 +116,9 @@ public class IdWSServer extends GenericRestWSServer {
 
     @GET
     @Path("/{id}/contains")
+/*
+    @ApiOperation(httpMethod = "GET", value = "Get the genes that contain the given string")
+*/
     public Response getByContainsQuery(@PathParam("id") String query) {
         try {
             checkParams();
