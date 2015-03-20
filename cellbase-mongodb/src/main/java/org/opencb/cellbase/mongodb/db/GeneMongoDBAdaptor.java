@@ -3,7 +3,8 @@ package org.opencb.cellbase.mongodb.db;
 import com.mongodb.*;
 import org.opencb.biodata.models.feature.Region;
 import org.opencb.cellbase.core.common.Position;
-import org.opencb.cellbase.core.lib.api.GeneDBAdaptor;
+import org.opencb.cellbase.core.lib.api.core.GeneDBAdaptor;
+import org.opencb.cellbase.mongodb.MongoDBCollectionConfiguration;
 import org.opencb.datastore.core.QueryOptions;
 import org.opencb.datastore.core.QueryResult;
 import org.opencb.datastore.mongodb.MongoDataStore;
@@ -13,11 +14,9 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
-//import org.bioinfo.infrared.core.cellbase.Gene;
-
 public class GeneMongoDBAdaptor extends MongoDBAdaptor implements GeneDBAdaptor {
 
-    private int coreChunkSize = 5000;
+    private int geneChunkSize = MongoDBCollectionConfiguration.GENE_CHUNK_SIZE;
 
     public GeneMongoDBAdaptor(DB db) { super(db); }
 
@@ -28,14 +27,14 @@ public class GeneMongoDBAdaptor extends MongoDBAdaptor implements GeneDBAdaptor 
         logger.info("GeneMongoDBAdaptor: in 'constructor'");
     }
 
-    public GeneMongoDBAdaptor(String species, String assembly, int coreChunkSize, MongoDataStore mongoDataStore) {
+    public GeneMongoDBAdaptor(String species, String assembly, int geneChunkSize, MongoDataStore mongoDataStore) {
 //        super(db, species, assembly);
 //        mongoDBCollection = db.getCollection("gene");
         super(species, assembly, mongoDataStore);
         mongoDBCollection2 = mongoDataStore.getCollection("gene");
 
         logger.info("GeneMongoDBAdaptor: in 'constructor'");
-        this.coreChunkSize = coreChunkSize;
+        this.geneChunkSize = geneChunkSize;
     }
 
     @Override
@@ -73,19 +72,19 @@ public class GeneMongoDBAdaptor extends MongoDBAdaptor implements GeneDBAdaptor 
         }
     }
 
-    @Override
-    public QueryResult next(String id, QueryOptions options) {
-        // TODO Auto-generated method stub
-        QueryBuilder builder = QueryBuilder.start("transcripts.xrefs.id").is(id);
-        DBObject returnFields = getReturnFields(options);
-        BasicDBList list = executeFind(builder.get(), returnFields, options);
-        if (list != null && list.size() > 0) {
-            DBObject gene = (DBObject) list.get(0);
-            System.out.println(Integer.parseInt(gene.get("start").toString()));
-            return next((String) gene.get("chromosome"), Integer.parseInt(gene.get("start").toString()), options);
-        }
-        return null;
-    }
+//    @Override
+//    public QueryResult next(String id, QueryOptions options) {
+//        // TODO Auto-generated method stub
+//        QueryBuilder builder = QueryBuilder.start("transcripts.xrefs.id").is(id);
+//        DBObject returnFields = getReturnFields(options);
+//        BasicDBList list = executeFind(builder.get(), returnFields, options);
+//        if (list != null && list.size() > 0) {
+//            DBObject gene = (DBObject) list.get(0);
+//            System.out.println(Integer.parseInt(gene.get("start").toString()));
+//            return next((String) gene.get("chromosome"), Integer.parseInt(gene.get("start").toString()), options);
+//        }
+//        return null;
+//    }
 
     // INFO:
     // next(chromosome, position) method has been moved to MongoDBAdaptor class
@@ -111,6 +110,16 @@ public class GeneMongoDBAdaptor extends MongoDBAdaptor implements GeneDBAdaptor 
     }
 
     @Override
+    public QueryResult getAllByXref(String id, QueryOptions options) {
+        return null;
+    }
+
+    @Override
+    public List<QueryResult> getAllByXrefList(List<String> idList, QueryOptions options) {
+        return null;
+    }
+
+    @Override
     public QueryResult getAllBiotypes(QueryOptions options) {
 
 //        QueryBuilder builder = QueryBuilder.start("gene.biotype").(id);  //TODO query distinct biotypes in gene collection
@@ -124,6 +133,17 @@ public class GeneMongoDBAdaptor extends MongoDBAdaptor implements GeneDBAdaptor 
         queryResult.setDbTime(0);
         return queryResult;
     }
+
+    @Override
+    public QueryResult getAllTargetsByTf(String id) {
+        return null;
+    }
+
+    @Override
+    public List<QueryResult> getAllTargetsByTfList(List<String> idList) {
+        return null;
+    }
+
 
     @Override
     public QueryResult getAllByPosition(String chromosome, int position, QueryOptions options) {
@@ -172,7 +192,7 @@ public class GeneMongoDBAdaptor extends MongoDBAdaptor implements GeneDBAdaptor 
             QueryBuilder builder = null;
             // If regions is 1 position then query can be optimize using chunks
             if (region.getStart() == region.getEnd()) {
-                builder = QueryBuilder.start("chunkIds").is(getChunkIdPrefix(region.getChromosome(), region.getStart(), coreChunkSize)).and("end")
+                builder = QueryBuilder.start("chunkIds").is(getChunkIdPrefix(region.getChromosome(), region.getStart(), geneChunkSize)).and("end")
                         .greaterThanEquals(region.getStart()).and("start").lessThanEquals(region.getEnd());
             } else {
                 builder = QueryBuilder.start("chromosome").is(region.getChromosome()).and("end")

@@ -4,12 +4,11 @@ import com.google.common.base.Splitter;
 import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
 import org.opencb.biodata.models.core.Xref;
-import org.opencb.cellbase.core.lib.api.GeneDBAdaptor;
-import org.opencb.cellbase.core.lib.api.XRefsDBAdaptor;
+import org.opencb.cellbase.core.lib.api.core.GeneDBAdaptor;
+import org.opencb.cellbase.core.lib.api.core.XRefsDBAdaptor;
 import org.opencb.cellbase.core.lib.api.variation.VariationDBAdaptor;
-import org.opencb.cellbase.server.QueryResponse;
-import org.opencb.cellbase.server.ws.GenericRestWSServer;
 import org.opencb.cellbase.server.exception.VersionException;
+import org.opencb.cellbase.server.ws.GenericRestWSServer;
 import org.opencb.datastore.core.QueryOptions;
 import org.opencb.datastore.core.QueryResult;
 
@@ -19,8 +18,6 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**

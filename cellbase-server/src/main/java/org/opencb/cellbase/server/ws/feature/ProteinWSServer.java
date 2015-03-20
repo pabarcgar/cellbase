@@ -3,7 +3,7 @@ package org.opencb.cellbase.server.ws.feature;
 import com.google.common.base.Splitter;
 import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
-import org.opencb.cellbase.core.lib.api.ProteinDBAdaptor;
+import org.opencb.cellbase.core.lib.api.core.ProteinDBAdaptor;
 import org.opencb.cellbase.server.ws.GenericRestWSServer;
 import org.opencb.cellbase.server.exception.VersionException;
 
@@ -59,7 +59,7 @@ public class ProteinWSServer extends GenericRestWSServer {
 			checkParams();
 			ProteinDBAdaptor adaptor = dbAdaptorFactory.getProteinDBAdaptor(this.species, this.assembly);
 			
-			return createJsonResponse("{}");
+			return createJsonResponse(null);
 //			return generateResponse("", "PROTEIN", adaptor.getAll());
 		} catch (Exception e) {
 			e.printStackTrace();

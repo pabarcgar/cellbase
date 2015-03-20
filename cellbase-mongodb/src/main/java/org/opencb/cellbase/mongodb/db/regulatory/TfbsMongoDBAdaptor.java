@@ -5,6 +5,7 @@ import org.opencb.biodata.models.feature.Region;
 import org.opencb.cellbase.core.common.IntervalFeatureFrequency;
 import org.opencb.cellbase.core.common.Position;
 import org.opencb.cellbase.core.lib.api.regulatory.TfbsDBAdaptor;
+import org.opencb.cellbase.mongodb.MongoDBCollectionConfiguration;
 import org.opencb.datastore.core.QueryOptions;
 import org.opencb.datastore.core.QueryResult;
 import org.opencb.datastore.mongodb.MongoDataStore;
@@ -22,7 +23,7 @@ import java.util.List;
  */
 public class TfbsMongoDBAdaptor extends RegulatoryRegionMongoDBAdaptor implements TfbsDBAdaptor {
 
-    private static int CHUNKSIZE = 2000;
+    private static int regulatoryRegionChunkSize = MongoDBCollectionConfiguration.REGULATORY_REGION_CHUNK_SIZE;
 
     public TfbsMongoDBAdaptor(DB db) {
         super(db);
@@ -164,9 +165,9 @@ public class TfbsMongoDBAdaptor extends RegulatoryRegionMongoDBAdaptor implement
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
-    @Override
-    public QueryResult getAll(QueryOptions options) {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
-    }
+//    @Override
+//    public QueryResult getAll(QueryOptions options) {
+//        return null;  //To change body of implemented methods use File | Settings | File Templates.
+//    }
 
 }

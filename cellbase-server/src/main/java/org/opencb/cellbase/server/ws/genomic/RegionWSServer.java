@@ -5,8 +5,8 @@ import org.opencb.biodata.models.core.CpGIsland;
 import org.opencb.biodata.models.feature.Region;
 import org.opencb.biodata.models.variation.StructuralVariation;
 import org.opencb.cellbase.core.common.IntervalFeatureFrequency;
-import org.opencb.cellbase.core.common.regulatory.MirnaTarget;
 import org.opencb.cellbase.core.lib.api.*;
+import org.opencb.cellbase.core.lib.api.core.*;
 import org.opencb.cellbase.core.lib.api.regulatory.RegulatoryRegionDBAdaptor;
 import org.opencb.cellbase.core.lib.api.regulatory.TfbsDBAdaptor;
 import org.opencb.cellbase.core.lib.api.variation.ClinVarDBAdaptor;
@@ -107,7 +107,7 @@ public class RegionWSServer extends GenericRestWSServer {
 
             if (hasHistogramQueryParam()) {
                 queryOptions.put("interval", getHistogramIntervalSize());
-                List<QueryResult> res = geneDBAdaptor.getAllIntervalFrequencies(regions, queryOptions);
+                QueryResult res = geneDBAdaptor.getAllIntervalFrequencies(regions.get(0), queryOptions);
                 return createOkResponse(res);
             } else {
                 if(biotype != null && !biotype.equals("")) {
@@ -156,7 +156,8 @@ public class RegionWSServer extends GenericRestWSServer {
             checkParams();
             ExonDBAdaptor exonDBAdaptor = dbAdaptorFactory.getExonDBAdaptor(this.species, this.assembly);
             List<Region> regions = Region.parseRegions(chregionId);
-            return createOkResponse(exonDBAdaptor.getAllByRegionList(regions));
+//            return createOkResponse(exonDBAdaptor.getAllByRegionList(regions));
+            return createOkResponse("not implemented");
         } catch (Exception e) {
             e.printStackTrace();
             return createErrorResponse("getExonByRegion", e.toString());
