@@ -32,7 +32,7 @@ class GeneParserTest extends Specification {
     def "gene #geneId parsed"() {
         expect:
         serializedGenes.findAll({gene -> gene.getId().equals(geneId)}).size() == 1
-        def gene = serializedGenes.findAll({gene -> gene.getId().equals(geneId)}).first()
+        def gene = serializedGenes.find({gene -> gene.getId().equals(geneId)})
         gene.name == geneName
         gene.biotype == biotype
         gene.chromosome == chromosome
@@ -43,9 +43,10 @@ class GeneParserTest extends Specification {
 
 
         where:
-        geneId            || geneName     | biotype   | chromosome | start | end   | strand | transcriptsNumber
-        "ENSG00000243485" || "MIR1302-11" | "lincRNA" | "1"        | 29554 | 31109 | "+"    | 2
-        "ENSG00000218839" || "FAM138C"    | "lincRNA" | "9"        | 34394 | 35871 | "-"    | 2
+        geneId            || geneName     | biotype   | chromosome | start | end   | strand | source    | transcriptsNumber
+        "ENSG00000243485" || "MIR1302-11" | "lincRNA" | "1"        | 29554 | 31109 | "+"    | "Ensembl" | 2
+        "ENSG00000218839" || "FAM138C"    | "lincRNA" | "9"        | 34394 | 35871 | "-"    | "Ensembl" | 2
+        "gene23264"       || "FAM138C"    | "lincRNA" | "9"        | 34394 | 35864 | "-"    | "Refseq"  | 1
     }
 
     @Unroll
@@ -61,11 +62,12 @@ class GeneParserTest extends Specification {
         transcript.tfbs.size() == tfbsNumber
 
         where:
-        transcriptId     || geneId            | name             | biotype   | chromosome | start | end   | strand | exonsNumber | tfbsNumber
-        "ENST00000473358"|| "ENSG00000243485" | "MIR1302-11-001" | "lincRNA" | "1"        | 29554 | 31097 | "+"    | 3           | 3
-        "ENST00000469289"|| "ENSG00000243485" | "MIR1302-11-002" | "lincRNA" | "1"        | 30267 | 31109 | "+"    | 2           | 3
-        "ENST00000449442"|| "ENSG00000218839" | "FAM138C-001"    | "lincRNA" | "9"        | 34394 | 35860 | "-"    | 3           | 5
-        "ENST00000305248"|| "ENSG00000218839" | "FAM138C-002"    | "lincRNA" | "9"        | 34965 | 35871 | "-"    | 2           | 5
+        transcriptId      || geneId            | name             | biotype   | chromosome | start | end   | strand | exonsNumber | tfbsNumber
+        "ENST00000473358" || "ENSG00000243485" | "MIR1302-11-001" | "lincRNA" | "1"        | 29554 | 31097 | "+"    | 3           | 3
+        "ENST00000469289" || "ENSG00000243485" | "MIR1302-11-002" | "lincRNA" | "1"        | 30267 | 31109 | "+"    | 2           | 3
+        "ENST00000449442" || "ENSG00000218839" | "FAM138C-001"    | "lincRNA" | "9"        | 34394 | 35860 | "-"    | 3           | 5
+        "ENST00000305248" || "ENSG00000218839" | "FAM138C-002"    | "lincRNA" | "9"        | 34965 | 35871 | "-"    | 2           | 5
+        "rna38811"        || "gene23264"       | "NR_036268.1"    | "lincRNA" | "9"        | 34965 | 35871 | "-"    | 2           | 5
     }
 
     @Unroll
