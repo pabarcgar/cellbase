@@ -147,6 +147,7 @@ public class DownloadCommandExecutor extends CommandExecutor {
         }
         if ((downloadCommandOptions.gene && speciesHasInfoToDownload(sp, "gene")) || downloadCommandOptions.all) {
             downloadEnsemblGene(sp, spShortName, spFolder, ensemblHostUrl);
+            downloadRefseqGene(spAssembly, spFolder);
         }
         if ((downloadCommandOptions.variation && speciesHasInfoToDownload(sp, "variation")) || downloadCommandOptions.all) {
             downloadVariation(sp, spShortName, assembly.getName(), spFolder, ensemblHostUrl);
@@ -164,7 +165,6 @@ public class DownloadCommandExecutor extends CommandExecutor {
             downloadClinical(sp, spShortName, assembly.getName(), spFolder);
         }
     }
-
 
     private boolean speciesHasInfoToDownload(Species sp, String info) {
         boolean hasInfo = true;
@@ -242,6 +242,13 @@ public class DownloadCommandExecutor extends CommandExecutor {
         downloadGeneUniprotXref(sp, geneFolder);
         downloadGeneExpressionAtlas(speciesFolder);
         runGeneExtraInfo(sp, geneFolder);
+    }
+
+
+    private void downloadRefseqGene(String spAssembly, Path spFolder) {
+        // TODO: implement
+        // Assembly 37 download: ftp://ftp.ncbi.nlm.nih.gov/genomes/H_sapiens/ARCHIVE/ANNOTATION_RELEASE.105/GFF/ref_GRCh37.p13_top_level.gff3.gz
+        // Assembly 38:
     }
 
     private void downloadEnsemblData(Species sp, String spShortName, Path geneFolder, String host) throws IOException, InterruptedException {

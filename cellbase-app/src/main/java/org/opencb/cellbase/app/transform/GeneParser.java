@@ -288,6 +288,10 @@ public class GeneParser extends CellBaseParser {
         }
     }
 
+    private void parseRefseq() {
+    //    Gene refseqGene = new Gene(id, name, biotype, status, chromosome, start, end, strand, source, description, transcripts, mirna);
+    }
+
     private ArrayList<TranscriptTfbs> getTranscriptTfbses(Gtf transcript, String chromosome, Map<String, SortedSet<Gff2>> tfbsMap) {
         ArrayList<TranscriptTfbs> transcriptTfbses = null;
         if (tfbsMap.containsKey(chromosome)) {
