@@ -1944,6 +1944,7 @@ public class  VariantAnnotationMongoDBAdaptor extends MongoDBAdaptor implements 
                             Float.valueOf(freqDBObject.get("refAlleleFreq").toString()),
                             Float.valueOf(freqDBObject.get("altAlleleFreq").toString())));
                 }
+                variantAnnotation.setHgvs(getVariantTranscriptsHgvs(variantList.get(i)));
             }
 
             List<VariantAnnotation> value = Collections.singletonList(variantAnnotation);
@@ -1952,6 +1953,15 @@ public class  VariantAnnotationMongoDBAdaptor extends MongoDBAdaptor implements 
         }
 
         return clinicalQueryResultList;
+    }
+
+    private List<String> getVariantTranscriptsHgvs(GenomicVariant genomicVariant) {
+        QueryResult<BasicDBObject> queryResult = geneDBAdaptor.getAllByPosition(genomicVariant.getChromosome(), genomicVariant.getPosition(), new QueryOptions());
+        List<BasicDBObject> results = queryResult.getResult();
+        for (BasicDBObject dbObject : results) {
+
+        }
+        return null;
     }
 
     private List<Region> variantListToRegionList(List<GenomicVariant> variantList) {
