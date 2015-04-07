@@ -1,9 +1,12 @@
 package org.opencb.cellbase.app.transform;
 
+import com.google.common.base.Splitter;
 import org.opencb.biodata.formats.feature.gff.Gff2;
 import org.opencb.biodata.formats.feature.gff.io.Gff2Reader;
+import org.opencb.biodata.formats.feature.gff.io.GffReader;
 import org.opencb.biodata.formats.feature.gtf.Gtf;
 import org.opencb.biodata.formats.feature.gtf.io.GtfReader;
+import org.opencb.biodata.formats.feature.refseq.RefseqAccession;
 import org.opencb.biodata.formats.io.FileFormatException;
 import org.opencb.biodata.formats.sequence.fasta.Fasta;
 import org.opencb.biodata.formats.sequence.fasta.io.FastaReader;
@@ -26,6 +29,7 @@ public class GeneParser extends CellBaseParser {
 
 
     private Path gtfFile;
+    private Path refseqGffFile;
     private Path proteinFastaFile;
     private Path cDnaFastaFile ;
     private Path geneDescriptionFile;
@@ -48,6 +52,7 @@ public class GeneParser extends CellBaseParser {
                 geneDirectoryPath.resolve("idmapping_selected.tab.gz"), geneDirectoryPath.resolve("MotifFeatures.gff"),
                 geneDirectoryPath.resolve("mirna.txt"), genomeSequenceFastaFile, serializer);
         getGtfFileFromGeneDirectoryPath(geneDirectoryPath);
+        getRefseqFileFromGeneDirectoryPath(geneDirectoryPath);
         getProteinFastaFileFromGeneDirectoryPath(geneDirectoryPath);
         getCDnaFastaFileFromGeneDirectoryPath(geneDirectoryPath);
     }
@@ -277,6 +282,8 @@ public class GeneParser extends CellBaseParser {
         // last gene must be serialized
         serializer.serialize(gene);
 
+        parseRefseq();
+
         // cleaning
         gtfReader.close();
         serializer.close();
@@ -289,7 +296,66 @@ public class GeneParser extends CellBaseParser {
     }
 
     private void parseRefseq() {
-    //    Gene refseqGene = new Gene(id, name, biotype, status, chromosome, start, end, strand, source, description, transcripts, mirna);
+        try (Gff2Reader refseqReader = new Gff2Reader(refseqGffFile)){
+            Gene refseqGene = null;
+            int exonNumber = 0;
+            List<Transcript> geneTranscripts = null;
+            ArrayList<Exon> transcriptExons = null;
+            for (Gff2 refseqRecord; (refseqRecord = refseqReader.read()) != null;) {
+                String feature = refseqRecord.getFeature();
+                String chromosome = new RefseqAccession(refseqRecord.getSequenceName()).getChromosome();
+                Map<String, String> attributes = Splitter.on(';').withKeyValueSeparator('=').split(refseqRecord.getAttribute());
+                if (feature.equals("gene")) {
+                    if (refseqGene != null) {
+                        refseqGene.setTranscripts(geneTranscripts);
+                        serializer.serialize(refseqGene);
+                    }
+                    exonNumber = 0;
+                    geneTranscripts = new ArrayList<>();
+                    // create new Gene
+
+                    // TODO: biotype, status, transcripts, mirna
+                    String biotype = "";
+                    String status = "";
+                    refseqGene = new Gene(attributes.get("ID"), attributes.get("Name"), biotype, status, chromosome, refseqRecord.getStart(), refseqRecord.getEnd(), refseqRecord.getStrand(), "Refseq", attributes.get("description"), null, null);
+                } else if (feature.equals("transcript") || feature.equals("ncRNA")) {
+                    String biotype = "";
+                    String status = "";
+                    Integer codingRegionStart = -1;
+                    Integer codingRegionEnd = -1;
+                    Integer cdnaCodingStart = -1;
+                    Integer cdnaCodingEnd = -1;
+                    Integer cdsLength = -1;
+                    String proteinId = null;
+                    String description = null;
+                    ArrayList<Xref> xrefs = null;
+                    // TODO: get transcriptTfbs
+                    ArrayList<TranscriptTfbs> tfbs = null;
+                    transcriptExons = new ArrayList<>();
+                    Transcript transcript = new Transcript(attributes.get("ID"), attributes.get("Name"), biotype, status, chromosome, refseqRecord.getStart(), refseqRecord.getEnd(), refseqRecord.getStrand(), codingRegionStart, codingRegionEnd, cdnaCodingStart, cdnaCodingEnd, cdsLength, proteinId, description, xrefs, transcriptExons, tfbs);
+                    geneTranscripts.add(transcript);
+                } else if (feature.equals("exon")) {
+                    Integer genomicCodingStart = -1;
+                    Integer genomicCodingEnd = -1;
+                    Integer cdnaCodingStart = -1;
+                    Integer cdnaCodingEnd = -1;
+                    Integer cdsStart = -1;
+                    Integer cdsEnd = -1;
+                    Integer phase = -1; // TODO: phase is just in CDS records
+                    exonNumber++;
+                    String sequence = getExonSequence(chromosome, refseqRecord.getStart(), refseqRecord.getEnd());
+                    Exon exon = new Exon(attributes.get("ID"), chromosome, refseqRecord.getStart(), refseqRecord.getEnd(), refseqRecord.getStrand(), genomicCodingStart, genomicCodingEnd, cdnaCodingStart, cdnaCodingEnd, cdsStart, cdsEnd, phase, exonNumber, sequence);
+                    transcriptExons.add(exon);
+                }
+            }
+            refseqGene.setTranscripts(geneTranscripts);
+            serializer.serialize(refseqGene);
+        } catch (IOException | NoSuchMethodException e) {
+            logger.error("Refseqfile {} could not be opened: {}", refseqGffFile, e.getMessage());
+        } catch (FileFormatException e) {
+            logger.error("Error reading refseq file {}: {}", refseqGffFile, e.getMessage());
+        }
+
     }
 
     private ArrayList<TranscriptTfbs> getTranscriptTfbses(Gtf transcript, String chromosome, Map<String, SortedSet<Gff2>> tfbsMap) {
@@ -751,6 +817,15 @@ public class GeneParser extends CellBaseParser {
         for (String fileName : geneDirectoryPath.toFile().list()) {
             if (fileName.endsWith(".gtf") || fileName.endsWith(".gtf.gz")) {
                 gtfFile = geneDirectoryPath.resolve(fileName);
+                break;
+            }
+        }
+    }
+
+    private void getRefseqFileFromGeneDirectoryPath(Path geneDirectoryPath) {
+        for (String fileName : geneDirectoryPath.toFile().list()) {
+            if (fileName.endsWith(".gff3") || fileName.endsWith(".gff3.gz")) {
+                refseqGffFile = geneDirectoryPath.resolve(fileName);
                 break;
             }
         }
