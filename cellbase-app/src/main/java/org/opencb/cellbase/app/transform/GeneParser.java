@@ -315,7 +315,7 @@ public class GeneParser extends CellBaseParser {
                     // create new Gene
 
                     // TODO: biotype, status, transcripts, mirna
-                    String biotype = "";
+                    String biotype = attributes.get("gbkey");
                     String status = "";
                     refseqGene = new Gene(attributes.get("ID"), attributes.get("Name"), biotype, status, chromosome, refseqRecord.getStart(), refseqRecord.getEnd(), refseqRecord.getStrand(), "Refseq", attributes.get("description"), null, null);
                 } else if (feature.equals("transcript") || feature.equals("ncRNA")) {
@@ -428,6 +428,7 @@ public class GeneParser extends CellBaseParser {
     }
 
     private Map<String, SortedSet<Gff2>> getTfbsMap() {
+        logger.info("Loading Tfbs data...");
         // data MotifFeatures content in a Map
         Map<String, SortedSet<Gff2>> tfbsMap = new HashMap<>();
         try {
@@ -774,7 +775,7 @@ public class GeneParser extends CellBaseParser {
     }
 
     private Map<String, MiRNAGene> getmiRNAGeneMap(Path mirnaGeneFile) throws IOException {
-        logger.info("Loading miRNA data ...");
+        logger.info("Loading miRNA data...");
         Map<String, MiRNAGene> mirnaGeneMap = new HashMap<>();
         if (mirnaFile != null && Files.exists(mirnaFile) && !Files.isDirectory(mirnaFile)) {
             BufferedReader br = Files.newBufferedReader(mirnaGeneFile, Charset.defaultCharset());
