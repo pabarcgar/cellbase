@@ -1,12 +1,31 @@
+/*
+ * Copyright 2015 OpenCB
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.opencb.cellbase.core.variant_annotation;
 
 import org.apache.commons.lang.StringUtils;
+import org.opencb.biodata.formats.annotation.io.JsonAnnotationWriter;
 import org.opencb.biodata.formats.annotation.io.VepFormatWriter;
-import org.opencb.biodata.formats.variant.vcf4.VcfRecord;
-import org.opencb.biodata.formats.variant.vcf4.io.VcfRawReader;
+import org.opencb.biodata.formats.variant.vcf4.io.VariantVcfReader;
+import org.opencb.biodata.models.variant.Variant;
+import org.opencb.biodata.models.variant.VariantSource;
 import org.opencb.biodata.models.variant.annotation.VariantAnnotation;
 import org.opencb.biodata.models.variation.GenomicVariant;
 import org.opencb.cellbase.core.client.CellBaseClient;
+import org.opencb.commons.io.DataWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,83 +39,115 @@ import java.util.concurrent.*;
  */
 public class VariantAnnotatorRunner {
 
-    private final Path inputFile;
-    private final Path outputFile;
-    private static final int QUEUE_CAPACITY = 10;
-    public static final int BATCH_SIZE = 1000;
-    private final Logger logger;
+    private Path inputFile;
+    private Path outputFile;
     protected BlockingQueue<List<GenomicVariant>> variantQueue;
     protected BlockingQueue<List<VariantAnnotation>> variantAnnotationQueue;
-    public static final List<GenomicVariant> VARIANT_POISON_PILL = new ArrayList<>();
-    public static final List<VariantAnnotation> ANNOTATION_POISON_PILL = new ArrayList<>();
-    private final int threadsNumber;
-    private int annotatorsNumber;
-    CellBaseClient cellBaseClient;
+    public static List<GenomicVariant> VARIANT_POISON_PILL = new ArrayList<>();
+    public static List<VariantAnnotation> ANNOTATION_POISON_PILL = new ArrayList<>();
+    private int numThreads;
+    private int batchSize;
+    private CellBaseClient cellBaseClient;
 
-    public VariantAnnotatorRunner(Path inputFile, Path outputFile, CellBaseClient cellBaseClient, int threadsNumber) {
-        logger = LoggerFactory.getLogger(this.getClass());
+    private static int NUM_THREADS = 4;
+    private static int BATCH_SIZE = 200;
+    private final int QUEUE_CAPACITY = 10;
+
+    private Logger logger;
+
+    public VariantAnnotatorRunner(Path inputFile, Path outputFile, CellBaseClient cellBaseClient) {
+        this(inputFile, outputFile, cellBaseClient, NUM_THREADS, BATCH_SIZE);
+    }
+
+    public VariantAnnotatorRunner(Path inputFile, Path outputFile, CellBaseClient cellBaseClient, int numThreads, int batchSize) {
         this.inputFile = inputFile;
         this.outputFile = outputFile;
         this.variantQueue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
         this.variantAnnotationQueue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
         this.cellBaseClient = cellBaseClient;
-        this.threadsNumber = threadsNumber;
+        this.numThreads = numThreads;
+        this.batchSize = batchSize;
+
+        logger = LoggerFactory.getLogger(this.getClass());
     }
 
     public void run() throws ExecutionException, InterruptedException {
-        VariantAnnotationWriterThread variantAnnotationWriterThread = new VariantAnnotationWriterThread(outputFile, variantAnnotationQueue);
+
+        /*
+         * ExecutorServices and Futures are created, all VariantAnnotators are initialized and submitted to them.
+         * After this the different variant annotators are blocked waiting for the blockingQueue to be populated.
+         */
+        ExecutorService annotatorExecutorService = Executors.newFixedThreadPool(numThreads);
         List<VariantAnnotator> variantAnnotatorList = createVariantAnnotators();
-        ExecutorService annotatorExecutorService = Executors.newFixedThreadPool(annotatorsNumber);
-        ExecutorService writerExecutorService = Executors.newSingleThreadExecutor();
-        Future<Integer> futureWrittenVariants = writerExecutorService.submit(variantAnnotationWriterThread);
         List<Future<Integer>> futureAnnotatedVariants = startAnnotators(annotatorExecutorService, variantAnnotatorList);
+
+        ExecutorService writerExecutorService = Executors.newSingleThreadExecutor();
+        VariantAnnotationWriterThread variantAnnotationWriterThread = new VariantAnnotationWriterThread(outputFile, variantAnnotationQueue);
+        Future<Integer> futureWrittenVariants = writerExecutorService.submit(variantAnnotationWriterThread);
+
+        /*
+         * Execution starts by reading the file and loading batches to the blockingQueue. This makes the loaders
+         * to start fetching and loading batches into the database. The number of records processed is returned.
+         */
         int inputRecords = readInputFile();
-        int annotatedRecords = getAnnotatedRecords(futureAnnotatedVariants);
-        int writtendRecords = futureWrittenVariants.get();
-        this.checkNumberProcessedRecords(inputRecords, annotatedRecords, writtendRecords);
+
+        // Check everything has been precessed correctly
+        int annotatedRecords = 0;
+        for (Future<Integer> future : futureAnnotatedVariants) {
+            annotatedRecords += future.get();
+        }
+        int writtenRecords = futureWrittenVariants.get();
+        this.checkNumberProcessedRecords(inputRecords, annotatedRecords, writtenRecords);
+
+        // Shutdown all services
         annotatorExecutorService.shutdown();
         writerExecutorService.shutdown();
     }
 
     protected List<VariantAnnotator> createVariantAnnotators() {
-        annotatorsNumber = threadsNumber - 1;
-//        annotatorsNumber = threadsNumber > 2 ? threadsNumber - 1 : 1;
-
         List<VariantAnnotator> variantAnnotatorList = new ArrayList<>();
-        for (int i=0; i < annotatorsNumber; i++) {
+        for (int i=0; i < numThreads; i++) {
             variantAnnotatorList.add(new VariantAnnotator(variantQueue, variantAnnotationQueue, cellBaseClient));
+            logger.debug("Variant annotator thread '{}' created", i);
         }
-        logger.debug(annotatorsNumber + " annotator threads created");
         return variantAnnotatorList;
     }
 
     private List<Future<Integer>> startAnnotators(ExecutorService executorService, List<VariantAnnotator> variantAnnotatorList) {
-        List<Future<Integer>> futures = new ArrayList<>(annotatorsNumber);
-        for (VariantAnnotator variantAnnotator : variantAnnotatorList) {
-            futures.add(executorService.submit(variantAnnotator));
+        List<Future<Integer>> futures = new ArrayList<>(numThreads);
+        for (int i = 0; i < variantAnnotatorList.size(); i++) {
+            futures.add(executorService.submit(variantAnnotatorList.get(i)));
+            logger.debug("Variant annotator '{}' initialized and submitted to the ExecutorService", i);
         }
+        logger.info("{} threads created and running", numThreads);
         return futures;
     }
 
     private int readInputFile() {
+//    private int readInputFile() {
         int inputFileRecords = 0;
-        VcfRawReader vcfReader = new VcfRawReader(inputFile.toString());
-
+        VariantVcfReader vcfReader = new VariantVcfReader(new VariantSource(inputFile.toString(), "", "", ""),
+                inputFile.toString());
         if (vcfReader.open()) {
             vcfReader.pre();
-            List<VcfRecord> vcfBatch = vcfReader.read(BATCH_SIZE);
+            List<Variant> vcfBatch = vcfReader.read(batchSize);
             List<GenomicVariant> variantBatch;
             try {
                 while (!vcfBatch.isEmpty()) {
                     variantBatch = convertVcfRecordsToGenomicVariants(vcfBatch);
                     variantQueue.put(variantBatch);
                     inputFileRecords += variantBatch.size();
-                    logger.info(inputFileRecords + " variants queued for annotation");
-                    vcfBatch = vcfReader.read(BATCH_SIZE);
+                    vcfBatch = vcfReader.read(batchSize);
+
+                    if(inputFileRecords % 2000 == 0) {
+                        logger.info("{} variants annotated", inputFileRecords);
+                    }
+                    logger.debug("{} variants queued for annotation", inputFileRecords);
                 }
-                logger.info(inputFileRecords + " records read from " + inputFile);
+                logger.info("{} variants read and processed from {}", inputFileRecords, inputFile);
+
                 // Poison Pill to consumers so they know that there are no more batchs to consume
-                for (int i=0; i < annotatorsNumber; i++) {
+                for (int i=0; i < numThreads; i++) {
                     variantQueue.put(VARIANT_POISON_PILL);
                 }
             } catch (InterruptedException e) {
@@ -108,64 +159,43 @@ public class VariantAnnotatorRunner {
         return inputFileRecords;
     }
 
-    private List<GenomicVariant> convertVcfRecordsToGenomicVariants(List<VcfRecord> vcfBatch) {
+    private List<GenomicVariant> convertVcfRecordsToGenomicVariants(List<Variant> vcfBatch) {
         List<GenomicVariant> genomicVariants = new ArrayList<>(vcfBatch.size());
-        for (VcfRecord vcfRecord : vcfBatch) {
-            genomicVariants.add(getGenomicVariant(vcfRecord));
+        for (Variant variant : vcfBatch) {
+            GenomicVariant genomicVariant;
+            if((genomicVariant = getGenomicVariant(variant))!=null) {
+                genomicVariants.add(genomicVariant);
+            }
         }
         return genomicVariants;
     }
 
     // TODO: use a external class for this (this method could be added to GenomicVariant class)
-    private GenomicVariant getGenomicVariant(VcfRecord vcfRecord) {
-        int ensemblPos;
-        String ref, alt;
-        if (vcfRecord.getReference().length() > 1) {
-            ref = vcfRecord.getReference().substring(1);
-            alt = "-";
-            ensemblPos = vcfRecord.getPosition() + 1;
-        } else if (vcfRecord.getAlternate().length() > 1) {
-            ensemblPos = vcfRecord.getPosition() + 1;
-            if (vcfRecord.getAlternate().equals("<DEL>")) {
-                // large deletion
-                String[] infoFields = vcfRecord.getInfo().split(";");
-                int i = 0;
-                while(i<infoFields.length && !infoFields[i].startsWith("END=")) {
-                    i++;
-                }
-                int end = Integer.parseInt(infoFields[i].split("=")[1]);
-                ref = StringUtils.repeat("N", end - vcfRecord.getPosition());
-                alt = "-";
-            } else {
-                // short insertion
-                ref = "-";
-                alt = vcfRecord.getAlternate().substring(1);
-            }
+    private GenomicVariant getGenomicVariant(Variant variant) {
+        if(variant.getAlternate().equals(".")) {  // reference positions are not variants
+            return null;
         } else {
-            // SNV
-            ref = vcfRecord.getReference();
-            alt = vcfRecord.getAlternate();
-            ensemblPos = vcfRecord.getPosition();
+            String ref;
+            if (variant.getAlternate().equals("<DEL>")) {  // large deletion
+                int end = Integer.valueOf(variant.getSourceEntries().get("_").getAttributes().get("END"));  // .get("_") because studyId and fileId are empty strings when VariantSource is initialized at readInputFile
+                ref = StringUtils.repeat("N", end - variant.getStart());
+            } else {
+                ref = variant.getReference().equals("") ? "-" : variant.getReference();
+            }
+            return new GenomicVariant(variant.getChromosome(), variant.getStart(),
+                    ref, variant.getAlternate().equals("") ? "-" : variant.getAlternate());
+            //        return new GenomicVariant(variant.getChromosome(), ensemblPos, ref, alt);
         }
-        return new GenomicVariant(vcfRecord.getChromosome(), ensemblPos, ref, alt);
-    }
-
-    private int getAnnotatedRecords(List<Future<Integer>> futures) throws InterruptedException, ExecutionException {
-        int writtenRecords = 0;
-        for (Future<Integer> future : futures) {
-            writtenRecords += future.get();
-        }
-        return writtenRecords;
     }
 
     protected void checkNumberProcessedRecords(int inputRecords, int annotatedRecords, int writtenRecords) {
-        if (inputRecords == annotatedRecords) {
-            logger.info("All records have been annotated");
-        } else {
-            logger.warn("Just " + annotatedRecords + " of " + inputRecords + " have been annotated");
-        }
+//        if (inputRecords == annotatedRecords) {
+//            logger.info("All {} variants have been annotated", inputRecords);
+//        } else {
+//            logger.warn("Just " + annotatedRecords + " of " + inputRecords + " have been annotated");
+//        }
         if (inputRecords == writtenRecords) {
-            logger.info("All records have been annotated and their annotations written");
+            logger.info("All {} variants have been annotated and their annotations written", inputRecords);
         } else {
             logger.warn("Annotations for just " + writtenRecords + " of " + inputRecords + " have been written");
         }
@@ -174,7 +204,7 @@ public class VariantAnnotatorRunner {
     private class VariantAnnotationWriterThread implements Callable<Integer>{
         private final BlockingQueue<List<VariantAnnotation>> queue;
         private Path outputFile;
-        private VepFormatWriter vepWriter;
+        private DataWriter<VariantAnnotation> writer;
 
         public VariantAnnotationWriterThread(Path outputFile, BlockingQueue<List<VariantAnnotation>> queue) {
             this.outputFile = outputFile;
@@ -182,40 +212,45 @@ public class VariantAnnotatorRunner {
         }
 
         private void pre() {
-            this.vepWriter = new VepFormatWriter(outputFile.toString());
-            if(!this.vepWriter.open()) {
+            logger.info("Opening file {} for writing", outputFile.toString());
+            if(outputFile.toString().endsWith(".json")) {
+                this.writer = new JsonAnnotationWriter(outputFile.toString());
+            } else {
+                this.writer = new VepFormatWriter(outputFile.toString());
+            }
+            if(!this.writer.open()) {
                 logger.error("Error opening output file: "+outputFile.toString());
             }
-            this.vepWriter.pre();
+            this.writer.pre();
         }
 
         private  void post() {
-            this.vepWriter.post();
-            this.vepWriter.close();
+            this.writer.post();
+            this.writer.close();
         }
 
         @Override
         public Integer call() {
             this.pre();
-            Integer writtenObjects = 0;
-            Integer finishedAnnotators = 0;
+            int writtenObjects = 0;
+            int finishedAnnotators = 0;
             boolean finished = false;
             while (!finished) {
                 try {
-                    logger.info("Writer waits for new variants/annotations");
+//                    logger.info("Writer waits for new variants/annotations");
                     List<VariantAnnotation> batch = queue.take();
-                    logger.info("Writer receives " + batch.size() + " variants/annotations");
+                    logger.debug("Writer receives {} variants/annotations", batch.size());
                     if (batch == VariantAnnotatorRunner.ANNOTATION_POISON_PILL) {
                         finishedAnnotators++;
-                        if(finishedAnnotators==annotatorsNumber) {
-                            logger.info("Writer receives last POISON PILL. Finishes");
+                        if(finishedAnnotators == numThreads) {
                             finished = true;
+                            logger.debug("Writer receives last POISON PILL. Finishes");
                         }
                     } else {
-                        logger.info("Writer calls vepWriter for " + batch.size() + " variants/annotations");
-                        vepWriter.write(batch);
+//                        logger.info("Writer calls writer for " + batch.size() + " variants/annotations");
+                        writer.write(batch);
                         writtenObjects += batch.size();
-                        logger.info("Annotation written for " + writtenObjects + " variants");
+                        logger.debug("Annotation written for {} variants", writtenObjects);
                     }
                 } catch (InterruptedException e) {
                     logger.error("Writer thread interrupted: " + e.getMessage());
@@ -223,7 +258,7 @@ public class VariantAnnotatorRunner {
                     logger.error("Error Loading batch: " + e.getMessage());
                 }
             }
-            logger.debug("'writing' finished. " + writtenObjects + " records written");
+            logger.info("{} variants annotated and written into {}", writtenObjects, outputFile);
             this.post();
             return writtenObjects;
         }

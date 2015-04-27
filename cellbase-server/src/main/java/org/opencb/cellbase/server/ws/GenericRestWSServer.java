@@ -1,13 +1,30 @@
+/*
+ * Copyright 2015 OpenCB
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.opencb.cellbase.server.ws;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.base.Splitter;
+import com.wordnik.swagger.annotations.Api;
+import com.wordnik.swagger.annotations.ApiOperation;
 import com.wordnik.swagger.annotations.ApiParam;
 import org.opencb.cellbase.core.CellBaseConfiguration;
 import org.opencb.cellbase.core.common.Species;
-import org.opencb.cellbase.core.common.core.CellbaseConfiguration;
 import org.opencb.cellbase.core.lib.DBAdaptorFactory;
 import org.opencb.cellbase.core.lib.api.core.ChromosomeDBAdaptor;
 import org.opencb.cellbase.mongodb.db.MongoDBAdaptorFactory;
@@ -23,17 +40,20 @@ import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.*;
 import javax.ws.rs.core.*;
 import javax.ws.rs.core.Response.ResponseBuilder;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.*;
 
 @Path("/{version}/{species}")
 @Produces("text/plain")
+@Api(value = "Generic", description = "Generic RESTful Web Services API")
 public class GenericRestWSServer implements IWSServer {
 
     // Common application parameters
-    @DefaultValue("")
-    @PathParam("version")
+//    @DefaultValue("")
+//    @PathParam("version")
     @ApiParam(name = "version", value = "CellBase version. Use 'latest' for last version stable.",
             allowableValues = "v3,latest", defaultValue = "v3")
     protected String version;
@@ -102,91 +122,14 @@ public class GenericRestWSServer implements IWSServer {
     protected long endTime;
     protected QueryResponse queryResponse;
 
-    protected Logger logger = LoggerFactory.getLogger(this.getClass());
+    protected static Logger logger;
 
     /**
      * Loading properties file just one time to be more efficient. All methods
      * will check parameters so to avoid extra operations this config can load
      * versions and species
      */
-    @Deprecated
-    protected static Properties properties;
-    @Deprecated
-    protected static CellbaseConfiguration config = new CellbaseConfiguration();
-
     protected static CellBaseConfiguration cellBaseConfiguration = new CellBaseConfiguration();
-
-
-    /**
-     *  Species for each version
-     */
-    static {
-        InputStream is = GenericRestWSServer.class.getClassLoader().getResourceAsStream("application.properties");
-        properties = new Properties();
-        try {
-            properties.load(is);
-            if (properties != null) {
-                config.setCoreChunkSize(Integer.parseInt(properties.getProperty("CORE_CHUNK_SIZE", "5000")));
-                config.setVariationChunkSize(Integer.parseInt(properties.getProperty("VARIATION_CHUNK_SIZE", "1000")));
-                config.setGenomeSequenceChunkSize(Integer.parseInt(properties.getProperty("CELLBASE.GENOME_SEQUENCE.CHUNK_SIZE", "2000")));
-                config.setConservedRegionChunkSize(Integer.parseInt(properties.getProperty("CELLBASE.CONSERVED_REGION.CHUNK_SIZE", "2000")));
-                config.setVersion(properties.getProperty("CELLBASE.VERSION"));
-
-                if(properties.containsKey("CELLBASE.AVAILABLE.SPECIES")) {
-                    String[] speciesArray = properties.getProperty("CELLBASE.AVAILABLE.SPECIES").split(",");
-                    String[] alias = null;
-                    String[] assemblies;
-                    String assemblyPrefix;
-                    String dbConfigurationId;
-                    for (String species : speciesArray) {
-                        species = species.toUpperCase();
-                        if(properties.containsKey(species+".ASSEMBLY")) {
-                            assemblies = properties.getProperty(species+".ASSEMBLY").split(",");
-                            for(String assembly : assemblies) {
-                                System.out.println("WS assembly = " + assembly);
-                                assembly = assembly.toUpperCase();
-                                assemblyPrefix = species + "." + assembly;
-
-                                dbConfigurationId = properties.getProperty(assemblyPrefix + ".DB");
-                                System.out.println("WS dbConfigurationId = " + dbConfigurationId);
-                                config.addSpeciesConnection(species, assembly,
-                                        properties.getProperty(dbConfigurationId + ".HOST"),
-                                        properties.getProperty(assemblyPrefix + ".DATABASE"),
-                                        Integer.parseInt(properties.getProperty(dbConfigurationId + ".PORT")),
-                                        properties.getProperty(dbConfigurationId + ".DRIVER_CLASS"),
-                                        properties.getProperty(dbConfigurationId + ".USERNAME"),
-                                        properties.getProperty(dbConfigurationId + ".PASSWORD"),
-                                        Integer.parseInt(properties.getProperty(dbConfigurationId + ".MAX_POOL_SIZE", "10")),
-                                        Integer.parseInt(properties.getProperty(dbConfigurationId + ".TIMEOUT")));
-                                config.addSpeciesInfo(species, assembly, properties.getProperty(species + ".TAXONOMY"));
-                            }
-                        } else {
-                            dbConfigurationId = properties.getProperty(species + ".DB");
-                            config.addSpeciesConnection(species,
-                                    properties.getProperty(dbConfigurationId + ".HOST"),
-                                    properties.getProperty(species + ".DATABASE"),
-                                    Integer.parseInt(properties.getProperty(dbConfigurationId + ".PORT")),
-                                    properties.getProperty(dbConfigurationId + ".DRIVER_CLASS"),
-                                    properties.getProperty(dbConfigurationId + ".USERNAME"),
-                                    properties.getProperty(dbConfigurationId + ".PASSWORD"),
-                                    Integer.parseInt(properties.getProperty(dbConfigurationId + ".MAX_POOL_SIZE", "10")),
-                                    Integer.parseInt(properties.getProperty(dbConfigurationId + ".TIMEOUT")));
-                            config.addSpeciesInfo(species, properties.getProperty(species + ".TAXONOMY"));
-                        }
-                        alias = properties.getProperty(species + ".ALIAS").split(",");
-                        for (String al : alias) {
-                            config.addSpeciesAlias(al, species);
-                        }
-                        // For to recognize the species code
-                        config.addSpeciesAlias(species, species);
-                    }
-                }
-            }
-
-        } catch (IOException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-        }
-    }
 
     /**
      * DBAdaptorFactory creation, this object can be initialize with an
@@ -196,28 +139,46 @@ public class GenericRestWSServer implements IWSServer {
     protected static DBAdaptorFactory dbAdaptorFactory;
 
     static {
-        // BasicConfigurator.configure();
-        // dbAdaptorFactory = new HibernateDBAdaptorFactory();
-        dbAdaptorFactory = new MongoDBAdaptorFactory(config);
-        System.out.println("Static block #1");
+//        dbAdaptorFactory = new MongoDBAdaptorFactory(config);
+
+        logger = LoggerFactory.getLogger("org.opencb.cellbase.server.ws.GenericRestWSServer");
+
+        logger.info("Static block, creating MongoDBAdapatorFactory");
+        try {
+            if (System.getenv("CELLBASE_HOME") != null) {
+                logger.info("Loading configuration from '{}'", System.getenv("CELLBASE_HOME")+"/configuration.json");
+                cellBaseConfiguration = CellBaseConfiguration
+                        .load(new FileInputStream(new File(System.getenv("CELLBASE_HOME") + "/configuration.json")));
+            } else {
+                logger.info("Loading configuration from '{}'",
+                        CellBaseConfiguration.class.getClassLoader().getResourceAsStream("configuration.json").toString());
+                cellBaseConfiguration = CellBaseConfiguration
+                        .load(CellBaseConfiguration.class.getClassLoader().getResourceAsStream("configuration.json"));
+            }
+
+            // If Configuration has been loaded we can create the DBAdaptorFactory
+            dbAdaptorFactory = new MongoDBAdaptorFactory(cellBaseConfiguration);
+
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         jsonObjectMapper = new ObjectMapper();
         jsonObjectWriter = jsonObjectMapper.writer();
     }
 
-    public GenericRestWSServer(@PathParam("version") String version,
-                               @PathParam("species") String species,
+    public GenericRestWSServer(@PathParam("version") String version, @PathParam("species") String species,
                                @Context UriInfo uriInfo, @Context HttpServletRequest hsr) throws VersionException, IOException {
+        logger.debug("Executing GenericRestWSServer constructor");
 
-
-        this.version = version.toUpperCase();;
+        this.version = version;
         this.species = species;
         this.uriInfo = uriInfo;
         this.httpServletRequest = hsr;
 
         init(version, species, uriInfo);
-
-        logger.info("GenericrestWSServer: in 'constructor'");
     }
 
     protected void init(String version, String species, UriInfo uriInfo) throws VersionException, IOException {
@@ -225,23 +186,17 @@ public class GenericRestWSServer implements IWSServer {
         startTime = System.currentTimeMillis();
         queryResponse = new QueryResponse();
 
-        // load properties file
-        // ResourceBundle databaseConfig =
-        // ResourceBundle.getBundle("org.bioinfo.infrared.ws.application");
-        // config = new Config(databaseConfig);
-
         // mediaType = MediaType.valueOf("text/plain");
         queryOptions = new QueryOptions();
-        // logger = new Logger();
-        // logger.setLevel(Logger.DEBUG_LEVEL);
-        logger.info("GenericrestWSServer: in 'init' method");
 
-        System.out.println("uriInfo.getQueryParameters(): "+uriInfo.getQueryParameters());
+        try {
+            checkParams();
+        } catch (SpeciesException e) {
+            e.printStackTrace();
+        }
     }
 
-    /**
-     * Overriden methods
-     */
+
     @Override
     public void checkParams() throws VersionException, SpeciesException {
         if (version == null) {
@@ -255,16 +210,13 @@ public class GenericRestWSServer implements IWSServer {
          * Check version parameter, must be: v1, v2, ... If 'latest' then is
          * converted to appropriate version
          */
-//        // TODO uncomment
-//        if (version != null && version.equals("latest") && config.getProperty("CELLBASE.LATEST.VERSION") != null) {
-//            version = config.getProperty("CELLBASE.LATEST.VERSION");
-//            System.out.println("version: " + version);
-//        }
+        if (version.equalsIgnoreCase("latest")) {
+            version = cellBaseConfiguration.getVersion();
+            logger.info("Version 'latest' detected, setting version parameter to '{}'", version);
+        }
 
-//        if (availableVersionSpeciesMap.containsKey(version)) {
-//            if (!availableVersionSpeciesMap.get(version).contains(species)) {
-        if(!config.getVersion().equals(this.version)){
-            System.out.println("config = " + config.getVersion());
+        if (!cellBaseConfiguration.getVersion().equalsIgnoreCase(this.version)) {
+            logger.error("Version '{}' does not match configuration '{}'", this.version, cellBaseConfiguration.getVersion());
             throw new VersionException("Version not valid: '" + version + "'");
         }
 
@@ -352,6 +304,7 @@ public class GenericRestWSServer implements IWSServer {
 
     @GET
     @Path("/species")
+    @Deprecated
     public Response getSpecies() {
         List<Species> speciesList = getSpeciesList();
         MediaType mediaType = MediaType.valueOf("application/javascript");
@@ -374,25 +327,57 @@ public class GenericRestWSServer implements IWSServer {
     }
 
     @GET
-    @Path("/{species}/i")
-    public Response getSpeciesInfo2(@PathParam("species") String species, @DefaultValue("json") @QueryParam("of") String of) {
-        ChromosomeDBAdaptor chromosomeDBAdaptor = dbAdaptorFactory.getChromosomeDBAdaptor(species, this.assembly);
-        return createOkResponse(chromosomeDBAdaptor.speciesInfoTmp(species, queryOptions));
+    @Path("/i")
+    @ApiOperation(httpMethod = "GET", value = "Retrieves genome info for current species", response = QueryResponse.class)
+    public Response getSpeciesInfo2(@ApiParam(value = "String indicating the output format.", allowableValues = "json", defaultValue = "json")
+                                        @DefaultValue("json") @QueryParam("of") String of) {
+        return createOkResponse(getSpeciesDataFromDB(species));
+    }
+
+    /**
+     * Given a species return all data regarding its genome stored in the DB.
+     *
+     * @param species    String containing the species id, either the short name or the scientific name (e.g. hsapiens, Homo sapiens)
+     * @return A QueryResult containing genome data.
+     */
+    private QueryResult getSpeciesDataFromDB(String species) {
+        // Not all species indicated at configuration.json are necessarily installed in the DB.
+        try {
+            ChromosomeDBAdaptor chromosomeDBAdaptor = dbAdaptorFactory.getChromosomeDBAdaptor(species, this.assembly);
+            return chromosomeDBAdaptor.speciesInfoTmp(getSpecies(species).getScientificName(), queryOptions);
+        } catch (com.mongodb.MongoException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * Given a species name returns all species info stored at the configuration data.
+     *
+     * @param speciesName    String containing the species id, either the short name or the scientific name (e.g. hsapiens, Homo sapiens)
+     * @return A Species object containing all species info stored with configuration data.
+     */
+    private CellBaseConfiguration.SpeciesProperties.Species getSpecies(String speciesName) {
+        CellBaseConfiguration.SpeciesProperties.Species species = null;
+        for (CellBaseConfiguration.SpeciesProperties.Species sp: cellBaseConfiguration.getAllSpecies()) {
+            if (speciesName.equalsIgnoreCase(sp.getId()) || speciesName.equalsIgnoreCase(sp.getScientificName())) {
+                species = sp;
+                break;
+            }
+        }
+        return species;
     }
 
     @GET
     @Path("/speciesinfo")
+    @ApiOperation(httpMethod = "GET", value = "Retrieves genome info for all available species in current installation", response = QueryResponse.class)
     public Response getSpeciesInfo() {
-        List<String> speciesList = new ArrayList<>(3);
-        speciesList.add("Homo sapiens");
-        speciesList.add("Mus musculus");
-        speciesList.add("Rattus norvegicus");
-
-        List<QueryResult> queryResults = new ArrayList<>(speciesList.size());
-        for(String specie: speciesList) {
-            ChromosomeDBAdaptor chromosomeDBAdaptor = dbAdaptorFactory.getChromosomeDBAdaptor(specie, this.assembly);
-            queryResults.add(chromosomeDBAdaptor.speciesInfoTmp(specie, queryOptions));
-
+        List<QueryResult> queryResults = new ArrayList<>();
+        for (CellBaseConfiguration.SpeciesProperties.Species sp: cellBaseConfiguration.getAllSpecies()) {
+            QueryResult queryResult = getSpeciesDataFromDB(sp.getId());
+            if(queryResult!=null) {
+                queryResults.add(queryResult);
+            }
         }
         return createOkResponse(queryResults);
     }
@@ -522,7 +507,7 @@ public class GenericRestWSServer implements IWSServer {
     }
 
     private List<Species> getSpeciesList() {
-        List<Species> speciesList = new ArrayList<Species>(11);
+        List<Species> speciesList = new ArrayList<>(11);
         speciesList.add(new Species("hsa", "human", "Homo sapiens", "GRCh37.p7"));
         speciesList.add(new Species("mmu", "mouse", "Mus musculus", "NCBIM37"));
         speciesList.add(new Species("rno", "rat", "Rattus norvegicus", "RGSC 3.4"));

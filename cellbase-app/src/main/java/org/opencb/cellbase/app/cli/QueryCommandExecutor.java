@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015 OpenCB
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.opencb.cellbase.app.cli;
 
 import com.beust.jcommander.ParameterException;
@@ -31,26 +47,26 @@ public class QueryCommandExecutor extends CommandExecutor {
     @Override
     public void execute() {
         checkParameters();
-        if(queryCommandOptions.annotate) {
-            VariantAnnotatorRunner variantAnnotatorRunner = null;
-            try {
-                variantAnnotatorRunner = new VariantAnnotatorRunner(inputFile, outputFile,
-                        getCellBaseClient(), queryCommandOptions.threads);
-            } catch (URISyntaxException e) {
-                e.printStackTrace();
-            }
-            try {
-                variantAnnotatorRunner.run();
-            } catch (ExecutionException | InterruptedException e) {
-                logger.error("Error executing annotator: " + e);
-            }
-        }
+//        if(queryCommandOptions.annotate) {
+//            VariantAnnotatorRunner variantAnnotatorRunner = null;
+//            try {
+//                variantAnnotatorRunner = new VariantAnnotatorRunner(inputFile, outputFile,
+//                        getCellBaseClient(), queryCommandOptions.threads);
+//            } catch (URISyntaxException e) {
+//                e.printStackTrace();
+//            }
+//            try {
+//                variantAnnotatorRunner.run();
+//            } catch (ExecutionException | InterruptedException e) {
+//                logger.error("Error executing annotator: " + e);
+//            }
+//        }
 
 //        checkParameters();
 //        try {
 //            CellBaseClient cellBaseClient = getCellBaseClient();
-//            if (queryCommandOptions.annotate && inputFile != null && inputFile.toString().toLowerCase().endsWith(".vcf")) {
-//                VcfAnnotator vcfAnnotator= new VcfAnnotator(inputFile, outputFile, cellBaseClient);
+//            if (queryCommandOptions.annotate && input != null && input.toString().toLowerCase().endsWith(".vcf")) {
+//                VcfAnnotator vcfAnnotator= new VcfAnnotator(input, output, cellBaseClient);
 //                vcfAnnotator.annotateVcfFile();
 //            }
 //        } catch (ParameterException e) {

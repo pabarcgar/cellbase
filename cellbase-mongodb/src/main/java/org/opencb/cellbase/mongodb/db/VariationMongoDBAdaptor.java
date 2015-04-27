@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015 OpenCB
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.opencb.cellbase.mongodb.db;
 
 import com.mongodb.*;
@@ -42,6 +58,7 @@ public class VariationMongoDBAdaptor extends MongoDBAdaptor implements Variation
 
     public VariationMongoDBAdaptor(String species, String assembly, MongoDataStore mongoDataStore) {
         super(species, assembly, mongoDataStore);
+        mongoDBCollection = db.getCollection("variation");
         mongoDBCollection2 = mongoDataStore.getCollection("variation");
         mongoVariationPhenotypeDBCollection2 = mongoDataStore.getCollection("variation_phenotype");
 
@@ -65,13 +82,13 @@ public class VariationMongoDBAdaptor extends MongoDBAdaptor implements Variation
 
     @Override
     public QueryResult getAllConsequenceTypes(QueryOptions options) {
-        String[] consquenceTypes = applicationProperties.getProperty("CELLBASE.V3.CONSEQUENCE_TYPES").split(",");
-        QueryResult queryResult = new QueryResult();
-        queryResult.setId("result");
-        DBObject result = new BasicDBObject("consequenceTypes", consquenceTypes);
-        queryResult.setResult(Arrays.asList(result));
-        queryResult.setDbTime(0);
-        return queryResult;
+//        String[] consquenceTypes = applicationProperties.getProperty("CELLBASE.V3.CONSEQUENCE_TYPES").split(",");
+//        QueryResult queryResult = new QueryResult();
+//        queryResult.setId("result");
+//        DBObject result = new BasicDBObject("consequenceTypes", consquenceTypes);
+//        queryResult.setResult(Arrays.asList(result));
+//        queryResult.setDbTime(0);
+        return null;
     }
 
 
@@ -103,7 +120,8 @@ public class VariationMongoDBAdaptor extends MongoDBAdaptor implements Variation
                 builder = builder.start("phenotype").is(pheno);
             }
         }
-        return executeQuery("result", builder.get(), options, mongoVariationPhenotypeDBCollection);
+        return executeQuery("result", builder.get(), options);
+//        return executeQuery("result", builder.get(), options, mongoVariationPhenotypeDBCollection);
     }
 
     @Override
@@ -129,7 +147,7 @@ public class VariationMongoDBAdaptor extends MongoDBAdaptor implements Variation
                 if (region.getStart() == region.getEnd()) {
                     String chunkId = getChunkIdPrefix(region.getChromosome(), region.getStart(), variationChunkSize);
                     System.out.println(chunkId);
-                    builder = QueryBuilder.start("chunkIds").is(chunkId).and("end")
+                    builder = QueryBuilder.start("_chunkIds").is(chunkId).and("end")
                             .greaterThanEquals(region.getStart()).and("start").lessThanEquals(region.getEnd());
                 } else {
                     builder = QueryBuilder.start("chromosome").is(region.getChromosome()).and("end")
@@ -270,7 +288,7 @@ public class VariationMongoDBAdaptor extends MongoDBAdaptor implements Variation
 
         for (GenomicVariant variation : variations) {
             String chunkId = getChunkIdPrefix(variation.getChromosome(), variation.getPosition(), variationChunkSize);
-            QueryBuilder builder = QueryBuilder.start("chunkIds").is(chunkId).and("chromosome").is(variation.getChromosome()).and("start").is(variation.getPosition()).and("alternate").is(variation.getAlternative());
+            QueryBuilder builder = QueryBuilder.start("_chunkIds").is(chunkId).and("chromosome").is(variation.getChromosome()).and("start").is(variation.getPosition()).and("alternate").is(variation.getAlternative());
             if(variation.getReference() != null){
                 builder = builder.and("reference").is(variation.getReference());
             }
@@ -305,7 +323,7 @@ public class VariationMongoDBAdaptor extends MongoDBAdaptor implements Variation
         for (GenomicVariant variation : variations) {
             String chunkId = getChunkIdPrefix(variation.getChromosome(), variation.getPosition(), variationChunkSize);
 
-            QueryBuilder builder = QueryBuilder.start("chunkIds").is(chunkId).and("chromosome").is(variation.getChromosome()).and("start").is(variation.getPosition()).and("alternate").is(variation.getAlternative());
+            QueryBuilder builder = QueryBuilder.start("_chunkIds").is(chunkId).and("chromosome").is(variation.getChromosome()).and("start").is(variation.getPosition()).and("alternate").is(variation.getAlternative());
 
             if(variation.getReference() != null){
                 builder = builder.and("reference").is(variation.getReference());

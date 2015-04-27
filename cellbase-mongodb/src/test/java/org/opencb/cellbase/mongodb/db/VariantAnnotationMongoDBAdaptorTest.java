@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015 OpenCB
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.opencb.cellbase.mongodb.db;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -11,6 +27,7 @@ import org.opencb.biodata.formats.variant.vcf4.io.VcfRawReader;
 import org.opencb.biodata.models.variant.annotation.ConsequenceType;
 import org.opencb.biodata.models.variant.annotation.VariantAnnotation;
 import org.opencb.biodata.models.variation.GenomicVariant;
+import org.opencb.cellbase.core.CellBaseConfiguration;
 import org.opencb.cellbase.core.common.core.CellbaseConfiguration;
 import org.opencb.cellbase.core.lib.DBAdaptorFactory;
 import org.opencb.cellbase.core.lib.api.variation.VariantAnnotationDBAdaptor;
@@ -36,17 +53,28 @@ public class VariantAnnotationMongoDBAdaptorTest {
     @Test
     public void testGetAnnotationByVariantList() throws Exception {
 
-        CellbaseConfiguration config = new CellbaseConfiguration();
+        CellBaseConfiguration cellBaseConfiguration = new CellBaseConfiguration();
 
+        try {
+            cellBaseConfiguration = CellBaseConfiguration
+                    .load(CellBaseConfiguration.class.getClassLoader().getResourceAsStream("configuration.json"));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
-        config.addSpeciesAlias("hsapiens", "hsapiens");
-
-        DBAdaptorFactory dbAdaptorFactory = new MongoDBAdaptorFactory(config);
+        DBAdaptorFactory dbAdaptorFactory = new MongoDBAdaptorFactory(cellBaseConfiguration);
 
         VariantAnnotationDBAdaptor variantAnnotationDBAdaptor = dbAdaptorFactory.getVariantAnnotationDBAdaptor("hsapiens", "GRCh37");
 
         List<VariantAnnotation> variantAnnotationList = new ArrayList<>();
 
+        variantAnnotationList.add((VariantAnnotation) ((List) variantAnnotationDBAdaptor.getAnnotationByVariantList(Collections.singletonList(new GenomicVariant("19", 45411941, "T", "C"))  // Should return any result
+                , new QueryOptions()).get(0).getResult()).get(0));
+        variantAnnotationList.add((VariantAnnotation) ((List) variantAnnotationDBAdaptor.getAnnotationByVariantList(Collections.singletonList(new GenomicVariant("22", 16050612, "C", "G"))  // Should return any result
+                , new QueryOptions()).get(0).getResult()).get(0));
+
+        variantAnnotationList.add((VariantAnnotation) ((List) variantAnnotationDBAdaptor.getAnnotationByVariantList(Collections.singletonList(new GenomicVariant("13", 45411941, "T", "C"))  // Should return any result
+                , new QueryOptions()).get(0).getResult()).get(0));
         variantAnnotationList.add((VariantAnnotation) ((List) variantAnnotationDBAdaptor.getAnnotationByVariantList(Collections.singletonList(new GenomicVariant("21", 18992155, "T", "C"))  // Should return any result
                 , new QueryOptions()).get(0).getResult()).get(0));
         variantAnnotationList.add((VariantAnnotation) ((List) variantAnnotationDBAdaptor.getAnnotationByVariantList(Collections.singletonList(new GenomicVariant("2", 130498751, "A", "G"))  // Should return any result
@@ -209,7 +237,7 @@ public class VariantAnnotationMongoDBAdaptorTest {
 
     }
 
-    @Ignore
+//    @Ignore
     @Test
     public void testGetAllConsequenceTypesByVariant() throws IOException, URISyntaxException {
 
@@ -227,15 +255,20 @@ public class VariantAnnotationMongoDBAdaptorTest {
 //        String result = objectMapper.writeValueAsString(response);
 //        int a = 1;
 
-        CellbaseConfiguration config = new CellbaseConfiguration();
+//        CellbaseConfiguration config = new CellbaseConfiguration();
+        CellBaseConfiguration cellBaseConfiguration = new CellBaseConfiguration();
 
-
-
+        try {
+            cellBaseConfiguration = CellBaseConfiguration
+                    .load(CellBaseConfiguration.class.getClassLoader().getResourceAsStream("configuration.json"));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
 //        config.addSpeciesAlias("agambiae", "agambiae");
-        config.addSpeciesAlias("hsapiens", "hsapiens");
+//        config.addSpeciesAlias("hsapiens", "hsapiens");
 
-        DBAdaptorFactory dbAdaptorFactory = new MongoDBAdaptorFactory(config);
+        DBAdaptorFactory dbAdaptorFactory = new MongoDBAdaptorFactory(cellBaseConfiguration);
 
         VariantAnnotationDBAdaptor variantAnnotationDBAdaptor = dbAdaptorFactory.getVariantAnnotationDBAdaptor("hsapiens", "GRCh37");
 //        VariantAnnotationDBAdaptor variantAnnotationDBAdaptor = dbAdaptorFactory.getVariantAnnotationDBAdaptor("agambiae", "GRCh37");
@@ -245,7 +278,13 @@ public class VariantAnnotationMongoDBAdaptorTest {
 
         // Use ebi cellbase to test these
         // TODO: check differences against Web VEP
-        variantAnnotationDBAdaptor.getAllConsequenceTypesByVariant(new GenomicVariant("9", 107366952, StringUtils.repeat("N",12577), "A"), new QueryOptions());  // should
+//        variantAnnotationDBAdaptor.getAllConsequenceTypesByVariant(new GenomicVariant("22", 16287365, "C", "T"), new QueryOptions());  // should
+//        variantAnnotationDBAdaptor.getAllConsequenceTypesByVariant(new GenomicVariant("19", 45411941, "T", "C"), new QueryOptions());  // should
+//        variantAnnotationDBAdaptor.getAllConsequenceTypesByVariant(new GenomicVariant("5", 150407694, "G", "A"), new QueryOptions());  // should
+//        variantAnnotationDBAdaptor.getAllConsequenceTypesByVariant(new GenomicVariant("19", 20047783, "AAAAAA", "-"), new QueryOptions());  // should
+        variantAnnotationDBAdaptor.getAllConsequenceTypesByVariant(new GenomicVariant("13", 28942717, "NNN", "-"), new QueryOptions());  // should return ENST00000541932 stop_retained
+//        variantAnnotationDBAdaptor.getAllConsequenceTypesByVariant(new GenomicVariant("13", 45411941, "T", "C"), new QueryOptions());  // should
+//        variantAnnotationDBAdaptor.getAllConsequenceTypesByVariant(new GenomicVariant("9", 107366952, StringUtils.repeat("N",12577), "A"), new QueryOptions());  // should
 //        variantAnnotationDBAdaptor.getAllConsequenceTypesByVariant(new GenomicVariant("7", 23775220, "T", "A"), new QueryOptions());  // should
 //        variantAnnotationDBAdaptor.getAllConsequenceTypesByVariant(new GenomicVariant("5", 150407694, "G", "A"), new QueryOptions());  // should
 //        variantAnnotationDBAdaptor.getAllConsequenceTypesByVariant(new GenomicVariant("5", 150407693, "T", "G"), new QueryOptions());  // should

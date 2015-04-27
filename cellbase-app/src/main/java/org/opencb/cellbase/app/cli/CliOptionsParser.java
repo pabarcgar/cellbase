@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015 OpenCB
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.opencb.cellbase.app.cli;
 
 import com.beust.jcommander.*;
@@ -21,6 +37,7 @@ public class CliOptionsParser {
     private LoadCommandOptions loadCommandOptions;
     private QueryCommandOptions queryCommandOptions;
     private VariantAnnotationCommandOptions variantAnnotationCommandOptions;
+    private PostLoadCommandOptions postLoadCommandOptions;
 
 
     public CliOptionsParser() {
@@ -36,12 +53,14 @@ public class CliOptionsParser {
         loadCommandOptions = new LoadCommandOptions();
         queryCommandOptions = new QueryCommandOptions();
         variantAnnotationCommandOptions = new VariantAnnotationCommandOptions();
+        postLoadCommandOptions = new PostLoadCommandOptions();
 
         jcommander.addCommand("download", downloadCommandOptions);
         jcommander.addCommand("build", buildCommandOptions);
         jcommander.addCommand("load", loadCommandOptions);
         jcommander.addCommand("query", queryCommandOptions);
         jcommander.addCommand("variant-annotation", variantAnnotationCommandOptions);
+        jcommander.addCommand("post-load", postLoadCommandOptions);
 
     }
 
@@ -81,7 +100,7 @@ public class CliOptionsParser {
         @Parameter(names = {"-v", "--verbose"}, description = "This parameter set the level of the logging", required = false, arity = 1)
         public boolean verbose;
 
-        @Parameter(names = {"-C", "--conf"}, description = "This parameter set the level of the logging", required = false, arity = 1)
+        @Parameter(names = {"-C", "--conf"}, description = "CellBase configuration json file. Have a look at cellbase/cellbase-core/src/main/resources/configuration.json for an example", required = false, arity = 1)
         public String conf;
 
     }
@@ -94,6 +113,9 @@ public class CliOptionsParser {
         public CommonCommandOptions commonOptions = commonCommandOptions;
 
 
+        @Parameter(names = {"-d", "--data"}, description = "Comma separated list of data to download: genome, gene, variation, regulation, protein, conservation and clinical. 'all' download everything.", required = true, arity = 1)
+        public String data;
+
         @Parameter(names = {"-s", "--species"}, description = "The name of the species to be downloaded, valid format include 'Homo sapiens' or 'hsapiens' [Homo sapiens]", required = false, arity = 1)
         public String species = "Homo sapiens";
 
@@ -103,29 +125,8 @@ public class CliOptionsParser {
         @Parameter(names = {"-o", "--output"}, description = "The output directory, species folder will be created [/tmp]", required = false, arity = 1)
         public String output = "/tmp";
 
-        @Parameter(names = {"--all"}, description = "Downloads all data in configuration.json for the species", required = false)
-        public boolean all = false;
-
-        @Parameter(names = {"--genome"}, description = "Downloads Ensembl Reference genome sequence from EMBL-EBI", required = false)
-        public boolean genome = false;
-
-        @Parameter(names = {"--gene"}, description = "Downloads Ensembl and NCBI RefSeq gene sets", required = false)
-        public boolean gene = false;
-
-        @Parameter(names = {"--variation"}, description = "Downloads Ensembl Variation data from EMBL-EBI", required = false)
-        public boolean variation = false;
-
-        @Parameter(names = {"--regulation"}, description = "Downloads Ensembl Regulatory and miRNA and targets", required = false)
-        public boolean regulation = false;
-
-        @Parameter(names = {"--protein"}, description = "Downloads UniProt, IntAct and InterPro if 'protein' is present in 'data' of configuration.json", required = false)
-        public boolean protein = false;
-
-        @Parameter(names = {"--conservation"}, description = "Downloads PhastCons and PhyloP from UCSC, only for human and mouse", required = false)
-        public boolean conservation = false;
-
-        @Parameter(names = {"--clinical"}, description = "Downloads ClinVar, Cosmic and GWAS data for Human only", required = false)
-        public boolean clinical = false;
+        @Parameter(names = {"--common"}, description = "Directory where common multi-species data will be downloaded, this is mainly protein and expression data [<OUTPUT>/common]", required = false, arity = 1)
+        public String common;
 
     }
 
@@ -137,8 +138,8 @@ public class CliOptionsParser {
         public CommonCommandOptions commonOptions = commonCommandOptions;
 
 
-        @Parameter(names = {"-b", "--build"}, description = "", required = true, arity = 1)
-        public String build;
+        @Parameter(names = {"-d", "--data"}, description = "", required = true, arity = 1)
+        public String data;
 
         @Parameter(names = {"-s", "--species"}, description = "", required = false)
         public String species = "Homo sapiens";
@@ -165,35 +166,23 @@ public class CliOptionsParser {
         public CommonCommandOptions commonOptions = commonCommandOptions;
 
 
+        @Parameter(names = {"-d", "--data"}, description = "Data type to be loaded, i.e. genome, gene, ...", required = true, arity = 1)
+        public String data;
+
         @Parameter(names = {"-i", "--input"}, description = "Input file or directory with the data to be loaded", required = true, arity = 1)
         public String input;
 
-        @Parameter(names = {"-d", "--data"}, description = "Data type to be loaded, i.e. genome_sequence, gene, ...", required = true, arity = 1)
-        public String load;
+        @Parameter(names = {"--database"}, description = "Data type to be loaded, i.e. genome, gene, ...", required = true, arity = 1)
+        public String database;
 
         @Parameter(names = {"-l", "--loader"}, description = "", required = false, arity = 1)
         public String loader = "org.opencb.cellbase.mongodb.loader.MongoDBCellBaseLoader";
 
+        @Parameter(names = {"--num-threads"}, description = "Number of threads used for loading data into the database [2]", required = false, arity = 1)
+        public int numThreads = 2;
+
         @DynamicParameter(names = "-D", description = "Dynamic parameters go here", hidden = true)
         public Map<String, String> loaderParams = new HashMap<>();
-
-        @Parameter(names = {"--host"}, description = "Database host name [localhost]", required = false, arity = 1)
-        public String host = "localhost";
-
-        @Parameter(names = {"--port"}, description = "", required = false)
-        public int port;
-
-        @Parameter(names = {"--user"}, description = "Database user with write access []", required = false, arity = 1)
-        public String user = "";
-
-        @Parameter(names = {"--password"}, description = "Database user's password []", required = false, arity = 1)
-        public String password = "";
-
-        @Parameter(names = {"--indexFile"}, description = "", required = false, arity = 1)
-        public String indexFile;
-
-        @Parameter(names = {"--num-threads"}, description = "Number of threads used for loading data into the database [2]", required = false, arity = 1)
-        public int threads = 2;
 
     }
 
@@ -246,26 +235,43 @@ public class CliOptionsParser {
         public CommonCommandOptions commonOptions = commonCommandOptions;
 
 
-        @Parameter(names = {"--species"}, description = "", required = true)
+        @Parameter(names = {"-s", "--species"}, description = "The name of the species to be downloaded, valid format include 'Homo sapiens' or 'hsapiens' [Homo sapiens]", required = true)
         public String species;
 
-        @Parameter(names = {"--assembly"}, description = "", required = false)
+        @Parameter(names = {"-a", "--assembly"}, description = "The name of the assembly, if empty the first assembly in configuration.json will be read", required = false)
         public String assembly;
 
-        @Parameter(names = {"-i", "--input-file"}, description = "", required = true, arity = 1)
-        public String inputFile;
+        @Parameter(names = {"-i", "--input-file"}, description = "Input file with the data file to be annotated", required = true, arity = 1)
+        public String input;
 
-        @Parameter(names = {"-o", "--output-file"}, description = "", required = true, arity = 1)
-        public String outputFile;
+        @Parameter(names = {"-o", "--output-file"}, description = "Output file with the annotations", required = true, arity = 1)
+        public String output;
 
-        @Parameter(names = {"--host-url"}, description = "", required = false, arity = 1)
-        public String url = "wwwdev.ebi.ac.uk";
+        @Parameter(names = {"-u", "--host-url"}, description = "The URL of CellBase REST web services [bioinfo.hpc.cam.ac.uk]", required = false, arity = 1)
+        public String url = "bioinfo.hpc.cam.ac.uk";
 
-        @Parameter(names = {"--port"}, description = "", required = false, arity = 1)
+        @Parameter(names = {"--port"}, description = "The port where REST web services are listening[80]", required = false, arity = 1)
         public int port = 80;
 
-        @Parameter(names = {"--num-threads"}, description = "", required = false, arity = 1)
-        public int threads = 2;
+        @Parameter(names = {"-t", "--num-threads"}, description = "Number of threads to be used [4]", required = false, arity = 1)
+        public int numThreads = 4;
+
+        @Parameter(names = {"--batch-size"}, description = "Number of variants per thread [200]", required = false, arity = 1)
+        public int batchSize = 200;
+
+    }
+
+    @Parameters(commandNames = {"post-load"}, commandDescription = "Description: complements data already loaded in CellBase")
+    public class PostLoadCommandOptions {
+
+        @ParametersDelegate
+        public CommonCommandOptions commonOptions = commonCommandOptions;
+
+        @Parameter(names = {"-a", "--assembly"}, description = "The name of the assembly", required = false, arity = 1)
+        public String assembly = null;
+
+        @Parameter(names = {"--clinical-annotation-file"}, description = "Specify a file containing variant annotations for CellBase clinical data. Accepted file formats: VEP's file format", required = false)
+        public String clinicalAnnotationFilename = null;
 
     }
 
@@ -290,8 +296,8 @@ public class CliOptionsParser {
         return queryCommandOptions;
     }
 
-    public VariantAnnotationCommandOptions getVariantAnnotationCommandOptions() {
-        return variantAnnotationCommandOptions;
-    }
+    public VariantAnnotationCommandOptions getVariantAnnotationCommandOptions() { return variantAnnotationCommandOptions; }
+
+    public PostLoadCommandOptions getPostLoadCommandOptions() { return postLoadCommandOptions; }
 
 }

@@ -1,3 +1,19 @@
+/*
+ * Copyright 2015 OpenCB
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.opencb.cellbase.core.variant_annotation;
 
 import org.opencb.biodata.models.variant.annotation.VariantAnnotation;
@@ -39,14 +55,14 @@ public class VariantAnnotator implements Callable<Integer> {
         boolean finished = false;
         while (!finished) {
             try {
-                logger.info("Annotator waits for new variants");
+//                logger.info("Annotator waits for new variants");
                 List<GenomicVariant> batch = variantQueue.take();
-                logger.info("Annotator receives " + batch.size() + " new variants");
+                logger.debug("Annotator receives {} new variants", batch.size());
                 if (batch == VariantAnnotatorRunner.VARIANT_POISON_PILL) {
-                    logger.info("Annotator finishes");
                     finished = true;
+                    logger.debug("Annotator finishes");
                 } else {
-                    logger.info("Annotator sends " + batch.size() + " new variants for annotation. Waiting for the result.");
+                    logger.debug("Annotator sends {} new variants for annotation. Waiting for the result", batch.size());
                     QueryResponse<QueryResult<VariantAnnotation>> response =
                             cellBaseClient.getFullAnnotation(CellBaseClient.Category.genomic,
 //                                    CellBaseClient.SubCategory.variant, batch, new QueryOptions());
@@ -55,7 +71,7 @@ public class VariantAnnotator implements Callable<Integer> {
                     for (QueryResult<VariantAnnotation> queryResult : response.getResponse()) {
                         variantAnnotationList.add(queryResult.getResult().get(0));
                     }
-                    logger.info("Annotator queues for writing "+batch.size()+" new variants and their annotation");
+                    logger.debug("Annotator queues for writing batch.size() new variants and their annotation", batch.size());
                     variantAnnotationQueue.put(variantAnnotationList);
                     annotatedObjects += variantAnnotationList.size();
                 }

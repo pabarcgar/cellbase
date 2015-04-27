@@ -1,11 +1,27 @@
+/*
+ * Copyright 2015 OpenCB
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.opencb.cellbase.core.loader;
 
+import org.opencb.cellbase.core.CellBaseConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 
@@ -14,29 +30,42 @@ import java.util.concurrent.Callable;
  */
 public abstract class CellBaseLoader implements Callable<Integer> {
 
-    public static final String CELLBASE_HOST = "host";
-    public static final String CELLBASE_PORT = "port";
-    public static final String CELLBASE_DATABASE_NAME_PROPERTY = "database";
-    public static final String CELLBASE_DEFAULT_DATABASE_NAME = "cellbase";
-    public static final String CELLBASE_USER = "user";
-    public static final String CELLBASE_PASSWORD = "password";
+    protected final BlockingQueue<List<String>> blockingQueue;
+    protected String data;
+    protected String database;
 
-    protected final BlockingQueue<List<String>> queue;
+    protected CellBaseConfiguration cellBaseConfiguration;
+
     protected final Logger logger;
-    public String data;
-    protected Map<String, String> params;
 
-    public CellBaseLoader (BlockingQueue<List<String>> queue, String data, Map<String, String> params) {
-        this.queue = queue;
+
+    public CellBaseLoader (BlockingQueue<List<String>> blockingQueue, String data, String database,
+                           CellBaseConfiguration cellBaseConfiguration) {
+        this.blockingQueue = blockingQueue;
         this.data = data;
-        this.params = params;
+        this.database = database;
+
+        if(cellBaseConfiguration != null) {
+            this.cellBaseConfiguration = cellBaseConfiguration;
+        }else {
+            try {
+                this.cellBaseConfiguration = CellBaseConfiguration
+                        .load(CellBaseConfiguration.class.getClassLoader().getResourceAsStream("configuration.json"));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
         logger = LoggerFactory.getLogger(this.getClass());
     }
 
     public abstract void init() throws LoaderException;
 
-    public abstract void disconnect();
-
     @Override
     public abstract Integer call();
+
+    public abstract void createIndex(String data) throws LoaderException;
+
+    public abstract void close();
+
 }
