@@ -19,6 +19,7 @@ package org.opencb.cellbase.mongodb.db;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import org.apache.commons.lang.StringUtils;
+import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.opencb.biodata.formats.annotation.io.VepFormatWriter;
@@ -46,13 +47,15 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.internal.matchers.IsCollectionContaining.hasItem;
 
 public class VariantAnnotationMongoDBAdaptorTest {
 
-    @Ignore
-    @Test
-    public void testGetAnnotationByVariantList() throws Exception {
+    private static VariantAnnotationDBAdaptor variantAnnotationDBAdaptor;
 
+    @BeforeClass
+    public static void setUpBeforeClass() throws Exception {
         CellBaseConfiguration cellBaseConfiguration = new CellBaseConfiguration();
 
         try {
@@ -64,7 +67,36 @@ public class VariantAnnotationMongoDBAdaptorTest {
 
         DBAdaptorFactory dbAdaptorFactory = new MongoDBAdaptorFactory(cellBaseConfiguration);
 
-        VariantAnnotationDBAdaptor variantAnnotationDBAdaptor = dbAdaptorFactory.getVariantAnnotationDBAdaptor("hsapiens", "GRCh37");
+        variantAnnotationDBAdaptor = dbAdaptorFactory.getVariantAnnotationDBAdaptor("hsapiens", "GRCh37");
+    }
+
+    @Test
+    public void testAnnotationIncludesHgvs() {
+        List<GenomicVariant> variants = Collections.singletonList(new GenomicVariant("1", 78135734, "C", "T"));
+        //List<GenomicVariant> variants = Collections.singletonList(new GenomicVariant("1", 111492425, "G", "A"));
+        List<QueryResult> results = variantAnnotationDBAdaptor.getAnnotationByVariantList(variants, new QueryOptions());
+        VariantAnnotation annotation = ((List<VariantAnnotation>)(results.get(0).getResult())).get(0);
+        assertThat(annotation.getHgvs(), hasItem("ENST00000469944.1:n.59+12536G>A"));
+        assertThat(annotation.getHgvs(), hasItem("ENST00000370801.3:c.-403+12536G>A"));
+        assertThat(annotation.getHgvs(), hasItem("ENST00000433749.1:c.-340+12536G>A"));
+        assertThat(annotation.getHgvs(), hasItem("ENST00000463166.1:n.142+13213G>A"));
+        assertThat(annotation.getHgvs(), hasItem("ENST00000370798.1:c.-329+13213G>A"));
+        assertThat(annotation.getHgvs(), hasItem("ENST00000414381.1:c.-340+13213G>A"));
+
+        variants = Collections.singletonList(new GenomicVariant("1", 111492425, "G", "A"));
+        results = variantAnnotationDBAdaptor.getAnnotationByVariantList(variants, new QueryOptions());
+        annotation = ((List<VariantAnnotation>)(results.get(0).getResult())).get(0);
+        assertThat(annotation.getHgvs(), hasItem("ENST00000494675.1:c.261+48C>T"));
+        assertThat(annotation.getHgvs(), hasItem("ENST00000369763.4:c.1869+48C>T"));
+        assertThat(annotation.getHgvs(), hasItem("ENST00000485275.2:c.261+48C>T"));
+        assertThat(annotation.getHgvs(), hasItem("ENST00000440689.1:n.1695-2381G>A"));
+    }
+
+    @Ignore
+    @Test
+    public void testGetAnnotationByVariantList() throws Exception {
+
+
 
         List<VariantAnnotation> variantAnnotationList = new ArrayList<>();
 
@@ -102,6 +134,8 @@ public class VariantAnnotationMongoDBAdaptorTest {
 
 
     }
+
+
 
     private int countLines(String fileName) throws IOException {
         System.out.println("Counting lines...");

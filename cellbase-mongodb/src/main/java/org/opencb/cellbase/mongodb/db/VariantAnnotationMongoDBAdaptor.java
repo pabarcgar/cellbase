@@ -17,7 +17,6 @@
 package org.opencb.cellbase.mongodb.db;
 
 import com.mongodb.*;
-import com.sun.org.apache.xpath.internal.operations.Bool;
 import org.broad.tribble.readers.TabixReader;
 import org.opencb.biodata.models.feature.Region;
 import org.opencb.biodata.models.variant.annotation.ConsequenceType;
@@ -1991,14 +1990,135 @@ public class  VariantAnnotationMongoDBAdaptor extends MongoDBAdaptor implements 
         return clinicalQueryResultList;
     }
 
-    private List<String> getVariantTranscriptsHgvs(GenomicVariant genomicVariant) {
-        QueryResult<BasicDBObject> queryResult = geneDBAdaptor.getAllByPosition(genomicVariant.getChromosome(), genomicVariant.getPosition(), new QueryOptions());
-        List<BasicDBObject> results = queryResult.getResult();
-        for (BasicDBObject dbObject : results) {
+    private List<String> getVariantTranscriptsHgvs(GenomicVariant variant) {
+        List<String> transcriptsHgvs = new ArrayList<>();
+        QueryResult<BasicDBObject> queryResult = geneDBAdaptor.getAllByPosition(variant.getChromosome(), variant.getPosition(), new QueryOptions());
+        for (BasicDBObject gene :  queryResult.getResult()) {
+            for (BasicDBObject transcript : (List<BasicDBObject>)gene.get("transcripts")) {
+                int transcriptStart = transcript.getInt("start");
+                int transcriptEnd = transcript.getInt("end");
+                int genomicCodingStart = transcript.getInt("genomicCodingStart");
+                int genomicCodingEnd = transcript.getInt("genomicCodingEnd");
+                String strand = transcript.getString("strand");
+                BasicDBList exons = (BasicDBList)transcript.get("exons");
+                if (variant.getPosition() > transcriptStart && variant.getPosition() < transcriptEnd) {
+                    //int distanceToExon = distanceToNearestExon(variant.getPosition(), exons);
+                    String positionRelativeToGenomicCodingStart = positionRelativeToGenomicCodingStart(variant.getPosition(), genomicCodingStart, genomicCodingEnd, strand, exons);
+                    transcriptsHgvs.add(positionRelativeToGenomicCodingStart);
+                    // there is no nucleotide 0
+                    // nucleotide 1 is the A of the ATG translation
 
+                    // beginning of the intron
+                    // end of the intron
+
+                    //Hgvs hgvs = new Hgvs(transcript.getString("id"), Hgvs.CODING_SEQUENCE_HGVS_TYPE, relativeTranscriptStart, variant.getReference(), variant.getAlternative());
+                    //transcriptsHgvs.add(hgvs.toString());
+                }
+            }
         }
-        return null;
+        return transcriptsHgvs;
     }
+
+    private String positionRelativeToGenomicCodingStart(int position, int genomicCodingStart, int genomicCodingEnd, String strand, BasicDBList exons) {
+        int relativePosition = 0;
+        String relativePositionString;
+        if (position < genomicCodingStart) {
+            relativePosition = codingNucleotidesBetween(position, genomicCodingStart, exons);
+
+            // 5UTR or 3 UTR depending on the strand
+            if (strand.equals("+")) {
+                relativePositionString = "-" + relativePosition;
+            } else {
+                relativePositionString = "*" + relativePosition;
+            }
+        } else if (position <= genomicCodingEnd ) {
+            // CODING
+            if (strand.equals("+")) {
+                relativePosition = codingNucleotidesBetween(genomicCodingStart, position, exons);
+            } else {
+                relativePosition = codingNucleotidesBetween(position, genomicCodingEnd, exons);
+            }
+            relativePositionString = Integer.toString(relativePosition);
+        } else {
+            // position > genomicCodingEnd
+            relativePosition = codingNucleotidesBetween(genomicCodingEnd, position, exons);
+
+            // 3UTR or 5 UTR depending on the strand
+            if (strand.equals("+")) {
+                relativePositionString = "*" + relativePosition;
+            } else {
+                relativePositionString = "-" + relativePosition;
+            }
+        }
+        return relativePositionString;
+    }
+
+    private int codingNucleotidesBetween(int start, int end, BasicDBList exons) {
+        int codingNucleotides = 0;
+        for (int i=0; i < exons.size(); i++) {
+            BasicDBObject exon = (BasicDBObject) exons.get(i);
+            int exonStart = exon.getInt("start");
+            int exonEnd = exon.getInt("end");
+            if (start <= exonEnd && end >= exonStart) {
+                int intersectionStart = (start < exonStart) ? exonStart : start;
+                int intersectionEnd = (end < exonEnd) ? end : exonEnd;
+                codingNucleotides += intersectionEnd - intersectionStart + 1;
+            }
+            System.out.println("1\t" + exonStart + "\t" + exonEnd);
+        }
+
+        return codingNucleotides;
+    }
+
+
+    private boolean variantInUTR(int variantPosition, int genomicCodingStart, int genomicCodingEnd, String strand) {
+        return (variantPosition < genomicCodingStart && strand.equals("+")) || (variantPosition > genomicCodingEnd && strand.equals("-"));
+    }
+
+    private boolean variantAfterExon(int variantPosition, int exonStart, int exonEnd) {
+        // TODO: rename method
+        // TODO: strand
+        return variantPosition >= exonStart && variantPosition >= exonEnd;
+    }
+
+    private boolean genomicCodingStartInExon(int genomicCodingStart, int exonStart, int exonEnd) {
+        return genomicCodingStart >= exonStart && genomicCodingStart <= exonEnd;
+    }
+
+    private boolean variantInExon(int variantPosition, int exonStart, int exonEnd) {
+        return variantPosition >= exonStart && variantPosition <= exonEnd;
+    }
+
+    private boolean exonInCodingRegion(int exonStart, int exonEnd, int genomicCodingStart, int genomicCodingEnd) {
+        return (exonStart >= genomicCodingStart && exonStart <= genomicCodingEnd) ||
+                (exonEnd >= genomicCodingStart && exonEnd <= genomicCodingEnd);
+    }
+
+    private boolean variantIn5UTR(int position, int genomicCodingStart, int genomicCodingEnd, String strand) {
+        if (strand.equals("+")) {
+            return position < genomicCodingStart;
+        } else {
+            return position > genomicCodingEnd;
+        }
+    }
+
+    private boolean variantInCodingRegion(int position, int genomicCodingStart, int genomicCodingEnd, String strand) {
+        if (strand.equals("+")) {
+            return position >= genomicCodingStart;
+        } else {
+            return position <= genomicCodingEnd;
+        }
+    }
+
+    private boolean variantIn3UTR(int position, int genomicCodingStart, int genomicCodingEnd, String strand) {
+        if (strand.equals("+")) {
+            return position > genomicCodingEnd;
+        } else {
+            return position < genomicCodingStart;
+        }
+    }
+
+
 
     private List<Region> variantListToRegionList(List<GenomicVariant> variantList) {
 
