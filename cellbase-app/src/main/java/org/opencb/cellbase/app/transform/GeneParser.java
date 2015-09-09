@@ -354,37 +354,43 @@ public class GeneParser extends CellBaseParser {
     private Map<String, List<ExpressionValue>> getGeneExpressionMap() throws IOException {
         Map<String,List<ExpressionValue>> geneExpressionMap = new HashMap<>();
 
-        BufferedReader br;
-        if (geneExpressionFile.toFile().getName().endsWith(".gz")) {
-            br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(geneExpressionFile.toFile()))));
-        } else {
-            br = Files.newBufferedReader(geneExpressionFile, Charset.defaultCharset());
-        }
-
-        logger.info("Loading gene expression data form {}", geneExpressionFile);
-        // Skip header. Column name line does not start with # so the last line read by this while will be this one
-        int lineCounter = 0;
-        String line;
-        while (((line = br.readLine()) != null) && (line.startsWith("#"))) {
-            lineCounter++;
-        }
-
-        while ((line = br.readLine()) != null) {
-            String[] parts = line.split("\t");
-            if(species.getScientificName().equals(parts[2])) {
-                if(parts[7].equals("UP")) {
-                    addValueToMapElement(geneExpressionMap, parts[1], new ExpressionValue(parts[3], parts[4], parts[5], parts[6],
-                            ExpressionValue.Expression.UP, Float.valueOf(parts[8])));
-                } else if (parts[7].equals("DOWN")) {
-                    addValueToMapElement(geneExpressionMap, parts[1], new ExpressionValue(parts[3], parts[4], parts[5], parts[6],
-                            ExpressionValue.Expression.DOWN, Float.valueOf(parts[8])));
-                } else {
-                    logger.warn("Expression tags found different from UP/DOWN at line {}. Entry omitted. ", lineCounter);
-                }
+        if (geneExpressionFile != null && geneExpressionFile.toFile().exists()) {
+            BufferedReader br;
+            if (geneExpressionFile.toFile().getName().endsWith(".gz")) {
+                br = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(geneExpressionFile.toFile()))));
+            } else {
+                br = Files.newBufferedReader(geneExpressionFile, Charset.defaultCharset());
             }
-            lineCounter++;
+
+            logger.info("Loading gene expression data form {}", geneExpressionFile);
+            // Skip header. Column name line does not start with # so the last line read by this while will be this one
+            int lineCounter = 0;
+            String line;
+            while (((line = br.readLine()) != null) && (line.startsWith("#"))) {
+                lineCounter++;
+            }
+
+            while ((line = br.readLine()) != null) {
+                String[] parts = line.split("\t");
+                if (species.getScientificName().equals(parts[2])) {
+                    if (parts[7].equals("UP")) {
+                        addValueToMapElement(geneExpressionMap, parts[1], new ExpressionValue(parts[3], parts[4], parts[5], parts[6],
+                                ExpressionValue.Expression.UP, Float.valueOf(parts[8])));
+                    } else if (parts[7].equals("DOWN")) {
+                        addValueToMapElement(geneExpressionMap, parts[1], new ExpressionValue(parts[3], parts[4], parts[5], parts[6],
+                                ExpressionValue.Expression.DOWN, Float.valueOf(parts[8])));
+                    } else {
+                        logger.warn("Expression tags found different from UP/DOWN at line {}. Entry omitted. ", lineCounter);
+                    }
+                }
+                lineCounter++;
+            }
+            br.close();
+        }else {
+            logger.warn("Gene expression file " + geneExpressionFile + " not found");
+            logger.warn("Gene expression data not loaded");
         }
-        br.close();
+
         return geneExpressionMap;
     }
 
