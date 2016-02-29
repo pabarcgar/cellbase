@@ -399,7 +399,7 @@ public class VariationParser extends CellBaseParser {
         String[] allelesArray;
         if (variationFeatureFields != null && variationFeatureFields[6] != null) {
             allelesArray = variationFeatureFields[6].split("/");
-            if (allelesArray.length == 1) {    // In some cases no '/' exists, ie. in 'HGMD_MUTATION'
+            if (allelesArray.length == 1 || allelesArray.length == 0) {    // In some cases no '/' exists, ie. in 'HGMD_MUTATION'
                 allelesArray = new String[]{"", ""};
             }
         } else {
