@@ -90,6 +90,8 @@ public class MongoDBAdaptorFactory extends DBAdaptorFactory {
 
                 // Database name is built following the above pattern
                 String database = "cellbase" + "_" + species + "_" + assembly.replaceAll("\\.", "").replaceAll("-", "").replaceAll("_", "") + "_" + cellBaseConfiguration.getVersion();
+		// database used to temporary load the data, that doesn't follow the standard name pattern:
+		//String database = "cellbase_testing_v3";
                 logger.debug("Database for the species is '{}'", database);
 
                 MongoDBConfiguration mongoDBConfiguration;
