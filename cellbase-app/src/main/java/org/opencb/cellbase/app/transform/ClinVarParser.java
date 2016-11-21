@@ -17,7 +17,7 @@
 package org.opencb.cellbase.app.transform;
 
 import org.opencb.biodata.formats.variant.clinvar.ClinvarParser;
-import org.opencb.biodata.formats.variant.clinvar.v34jaxb.*;
+import org.opencb.biodata.formats.variant.clinvar.v35jaxb.*;
 import org.opencb.cellbase.core.common.clinical.ClinvarPublicSet;
 import org.opencb.cellbase.core.serializer.CellBaseSerializer;
 
@@ -55,6 +55,7 @@ public class ClinVarParser extends CellBaseParser{
         this.clinvarXmlFile = clinvarXmlFile;
         this.efosFile = efosFile;
         this.selectedAssembly = ASSEMBLY_PREFIX + assembly;
+
     }
 
     public void parse() {
@@ -180,10 +181,15 @@ public class ClinVarParser extends CellBaseParser{
         }
     }
 
+    private void buildClinvarPublicSetWithNoSequenceLocation(PublicSetType publicSet) {
+        // this method (not used currently) serialize the variant with no coordinates
+        serializer.serialize(publicSet);
+    }
+
     private ClinvarPublicSet buildClinvarPublicSet(PublicSetType publicSet) {
         //Variant variant = obtainVariant(publicSet);
         ClinvarPublicSet clinvarPublicSet = null;
-        SequenceLocationType sequenceLocation = obtainAssembly37SequenceLocation(publicSet);
+        SequenceLocationType sequenceLocation = obtainSequenceLocation(publicSet);
         if (sequenceLocation != null) {
 
             clinvarPublicSet = new ClinvarPublicSet(sequenceLocation.getChr(),
@@ -196,7 +202,7 @@ public class ClinVarParser extends CellBaseParser{
         return clinvarPublicSet;
     }
 
-    private SequenceLocationType obtainAssembly37SequenceLocation(PublicSetType publicSet) {
+    private SequenceLocationType obtainSequenceLocation(PublicSetType publicSet) {
         for (MeasureSetType.Measure measure : publicSet.getReferenceClinVarAssertion().getMeasureSet().getMeasure()) {
             for (SequenceLocationType location :  measure.getSequenceLocation()) {
                 if (validLocation(location)) {
@@ -216,7 +222,7 @@ public class ClinVarParser extends CellBaseParser{
     }
 
     private JAXBElement<ReleaseType> unmarshalXML(Path clinvarXmlFile) throws JAXBException, IOException {
-        return (JAXBElement<ReleaseType>) ClinvarParser.loadXMLInfo(clinvarXmlFile.toString(), ClinvarParser.CLINVAR_CONTEXT_v34);
+        return (JAXBElement<ReleaseType>) ClinvarParser.loadXMLInfo(clinvarXmlFile.toString(), ClinvarParser.CLINVAR_CONTEXT_v35);
     }
 
     class EFO {
