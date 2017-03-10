@@ -49,11 +49,6 @@ public class ClinicalVariation {
         this.alternate = alternate;
     }
 
-    public ClinicalVariation(ClinvarPublicSet clinvarSet) {
-        this(clinvarSet.getChromosome(), clinvarSet.getStart(), clinvarSet.getEnd(), clinvarSet.getReference(), clinvarSet.getAlternate());
-        this.addClinvar(clinvarSet);
-    }
-
     public ClinicalVariation(Cosmic cosmic) {
         this(cosmic.getChromosome(), cosmic.getStart(), cosmic.getEnd(), cosmic.getReference(), cosmic.getAlternate());
         this.addCosmic(cosmic);

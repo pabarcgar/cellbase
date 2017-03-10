@@ -16,17 +16,16 @@
 
 package org.opencb.cellbase.core.common.clinical;
 
-import org.opencb.biodata.formats.variant.clinvar.v35jaxb.PublicSetType;
+import org.opencb.biodata.formats.variant.clinvar.v37jaxb.PublicSetType;
 
 /**
  * Created by parce on 10/29/14.
  */
-public class ClinvarPublicSet extends ClinicalVariant{
+public class ClinvarPublicSet {
 
     private PublicSetType clinvarSet;
 
-    public ClinvarPublicSet(String chromosome, int start, int end, String reference, String alternate, PublicSetType clinvarSet) {
-        super(chromosome, start, end, reference, alternate, "clinvar");
+    public ClinvarPublicSet(PublicSetType clinvarSet) {
         this.clinvarSet = clinvarSet;
     }
 

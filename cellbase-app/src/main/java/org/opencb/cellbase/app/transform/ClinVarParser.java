@@ -17,7 +17,7 @@
 package org.opencb.cellbase.app.transform;
 
 import org.opencb.biodata.formats.variant.clinvar.ClinvarParser;
-import org.opencb.biodata.formats.variant.clinvar.v35jaxb.*;
+import org.opencb.biodata.formats.variant.clinvar.v37jaxb.*;
 import org.opencb.cellbase.core.common.clinical.ClinvarPublicSet;
 import org.opencb.cellbase.core.serializer.CellBaseSerializer;
 
@@ -181,23 +181,14 @@ public class ClinVarParser extends CellBaseParser{
         }
     }
 
-    private void buildClinvarPublicSetWithNoSequenceLocation(PublicSetType publicSet) {
-        // this method (not used currently) serialize the variant with no coordinates
-        serializer.serialize(publicSet);
-    }
-
     private ClinvarPublicSet buildClinvarPublicSet(PublicSetType publicSet) {
-        //Variant variant = obtainVariant(publicSet);
         ClinvarPublicSet clinvarPublicSet = null;
         SequenceLocationType sequenceLocation = obtainSequenceLocation(publicSet);
         if (sequenceLocation != null) {
-
-            clinvarPublicSet = new ClinvarPublicSet(sequenceLocation.getChr(),
-                    sequenceLocation.getStart().intValue(),
-                    sequenceLocation.getStop().intValue(),
-                    sequenceLocation.getReferenceAllele(),
-                    sequenceLocation.getAlternateAllele(),
-                    publicSet);
+            clinvarPublicSet = new ClinvarPublicSet(publicSet);
+        } else {
+            logger.warn("Clinvar record {} doesn't have sequence location for assembly {}",
+                        publicSet.getReferenceClinVarAssertion().getClinVarAccession().getAcc(), selectedAssembly);
         }
         return clinvarPublicSet;
     }
@@ -205,7 +196,7 @@ public class ClinVarParser extends CellBaseParser{
     private SequenceLocationType obtainSequenceLocation(PublicSetType publicSet) {
         for (MeasureSetType.Measure measure : publicSet.getReferenceClinVarAssertion().getMeasureSet().getMeasure()) {
             for (SequenceLocationType location :  measure.getSequenceLocation()) {
-                if (validLocation(location)) {
+                if (location.getAssembly().startsWith(selectedAssembly)) {
                     return location;
                 }
             }
@@ -213,16 +204,8 @@ public class ClinVarParser extends CellBaseParser{
         return null;
     }
 
-    private boolean validLocation(SequenceLocationType location) {
-        return location.getAssembly().startsWith(selectedAssembly) &&
-                location.getReferenceAllele() != null && 
-                location.getAlternateAllele() != null &&
-                location.getStart() != null &&
-                location.getStop() != null;
-    }
-
     private JAXBElement<ReleaseType> unmarshalXML(Path clinvarXmlFile) throws JAXBException, IOException {
-        return (JAXBElement<ReleaseType>) ClinvarParser.loadXMLInfo(clinvarXmlFile.toString(), ClinvarParser.CLINVAR_CONTEXT_v35);
+        return (JAXBElement<ReleaseType>) ClinvarParser.loadXMLInfo(clinvarXmlFile.toString(), ClinvarParser.CLINVAR_CONTEXT_v37);
     }
 
     class EFO {
