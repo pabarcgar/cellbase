@@ -161,6 +161,9 @@ public class CliOptionsParser {
         @Parameter(names = {"--common"}, description = "Directory where common multi-species data will be downloaded, this is mainly protein and expression data [<OUTPUT>/common]", required = false, arity = 1)
         public String common;
 
+        @Parameter(names = {"--serializeVariantsWithNoSequenceLocation"}, description = "Serialize Clinvar variants that have no sequence location for the selected assembly", required = false, arity = 0)
+        public boolean serializeVariantsWithNoSequenceLocation;
+
     }
 
 

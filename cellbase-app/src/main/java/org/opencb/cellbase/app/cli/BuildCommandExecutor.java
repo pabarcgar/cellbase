@@ -358,7 +358,7 @@ public class BuildCommandExecutor extends CommandExecutor {
         }
 
         CellBaseSerializer serializer = new CellBaseJsonFileSerializer(output, "clinvar");
-        return new ClinVarParser(clinvarFile, efosFilePath, assembly, serializer);
+        return new ClinVarParser(clinvarFile, efosFilePath, assembly, serializer, buildCommandOptions.serializeVariantsWithNoSequenceLocation);
     }
 
     private CellBaseParser buildCosmic()  {
