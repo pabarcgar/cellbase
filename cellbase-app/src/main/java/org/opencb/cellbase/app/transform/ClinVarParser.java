@@ -17,7 +17,7 @@
 package org.opencb.cellbase.app.transform;
 
 import org.opencb.biodata.formats.variant.clinvar.ClinvarParser;
-import org.opencb.biodata.formats.variant.clinvar.v43jaxb.*;
+import org.opencb.biodata.formats.variant.clinvar.v47jaxb.*;
 import org.opencb.cellbase.core.common.clinical.ClinvarPublicSet;
 import org.opencb.cellbase.core.serializer.CellBaseSerializer;
 
@@ -201,18 +201,22 @@ public class ClinVarParser extends CellBaseParser{
     }
 
     private SequenceLocationType obtainSequenceLocation(PublicSetType publicSet) {
-        for (MeasureType measure : publicSet.getReferenceClinVarAssertion().getMeasureSet().getMeasure()) {
-            for (SequenceLocationType location :  measure.getSequenceLocation()) {
-                if (location.getAssembly().startsWith(selectedAssembly)) {
-                    return location;
+        try{
+            for (MeasureType measure : publicSet.getReferenceClinVarAssertion().getMeasureSet().getMeasure()) {
+                for (SequenceLocationType location :  measure.getSequenceLocation()) {
+                    if (location.getAssembly().startsWith(selectedAssembly)) {
+                        return location;
+                    }
                 }
             }
+        } catch (NullPointerException e) {
+            logger.error("Variant {} has no correct sequence location", publicSet.getReferenceClinVarAssertion().getClinVarAccession().getAcc());
         }
         return null;
     }
 
     private JAXBElement<ReleaseType> unmarshalXML(Path clinvarXmlFile) throws JAXBException, IOException {
-        return (JAXBElement<ReleaseType>) ClinvarParser.loadXMLInfo(clinvarXmlFile.toString(), ClinvarParser.CLINVAR_CONTEXT_v43);
+        return (JAXBElement<ReleaseType>) ClinvarParser.loadXMLInfo(clinvarXmlFile.toString(), ClinvarParser.CLINVAR_CONTEXT_v47);
     }
 
     class EFO {

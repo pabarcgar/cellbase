@@ -6,7 +6,7 @@
     <parent>
         <groupId>org.opencb.cellbase</groupId>
         <artifactId>cellbase</artifactId>
-        <version>3.2.0b</version>
+        <version>3.2.0c</version>
         <relativePath>..</relativePath>
     </parent>
 
